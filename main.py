@@ -2,6 +2,13 @@ import os
 import gradio as gr
 from pymongo import MongoClient
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Connect to MongoDB
+client = MongoClient(os.getenv("MONGO_URI"))
+db = client["denials_tracker_db"]
 
 with gr.Blocks() as ui:
     with gr.Tab("Record"):
