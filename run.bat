@@ -1,5 +1,5 @@
 @echo off
 
-set MONGO_URI=mongodb://127.0.0.1:27017
+set MONGODB_PATH = "mongodb://127.0.0.1:27017"
 
-call main.bat
+python3 main.py
