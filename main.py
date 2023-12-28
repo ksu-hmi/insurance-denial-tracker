@@ -49,13 +49,13 @@ def find_patient(lastnamefirstname, dob):
     else:
         return "Patient not found"
       
-def upsert_denial(dos, billAmt, note, user = ""):
-    billAmt = round(float(billAmt),2)
+def upsert_denial(dos, bill_amt, note, user = ""):
+    bill_amt = round(float(bill_amt),2)
 
     dat = {"input_date": datetime.now(), "input_user": user, "note": note}
     insert_note = db.notes.insert_one(dat)
 
-    inserted_denial = db.denials.find_one_and_update({"patient_id": patient_selected, "dos": datetime.strptime(dos, "%m/%d/%Y"), "billAmt": billAmt},
+    inserted_denial = db.denials.find_one_and_update({"patient_id": patient_selected, "dos": datetime.strptime(dos, "%m/%d/%Y"), "bill_amt": bill_amt},
                                                         {"$push": {"notes": insert_note.inserted_id}},
                                                         upsert=True),
     return inserted_denial
@@ -88,7 +88,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
             record_find_btn = gr.Button("Find")
         with gr.Row():
             record_patientList = gr.Markdown()
-        with gr.Accordion(visible=False) as record_input_accordion:
+        with gr.Accordion(label= "Input new note", visible=False, open=False) as record_input_accordion:
             with gr.Row():
                 record_dos = gr.Textbox(label="Date of Service")
                 record_billAmt = gr.Textbox(label="Bill Amount")
@@ -114,7 +114,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     
     # Event Handlers
     record_find_btn.click(fn = find_patient, inputs = [record_name, record_dob], outputs = record_patientList).success(
-        fn= lambda x: gr.Accordion(label= "Input new note", visible=True, open=False), outputs = record_input_accordion)
+        fn= lambda x: gr.Accordion(visible=True), outputs = record_input_accordion)
     record_submit_btn.click(fn = upsert_denial, inputs = [record_dos, record_billAmt, note], outputs = noteList)
     
     setting_addNewPt_submit_btn.click(fn = add_patient, inputs = [ln, fn, dob], outputs = output)
