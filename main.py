@@ -10,6 +10,7 @@ if "MONGODB_PATH" not in os.environ:
 
 # Declare variables
 patient_selected = None
+user_name = ""
 
 # Connect to MongoDB
 print("Connecting to the database...")
@@ -23,6 +24,26 @@ except Exception as e:
 db = client["denials_tracker_db"]
 
 # Functions
+def date_format(dateString):
+    for format in ('%m/%d/%y', '%m/%d/%Y'):
+        try:
+            return datetime.strptime(dateString, format)
+        except ValueError:
+            pass
+    raise ValueError('no valid date format found')
+
+def list_denials():
+    denials = db.denials.find({"patient_id": patient_selected['_id']}).sort("dos", -1)
+    table = "<table style='width: 100%;'><tr><th>Date of Service</th><th>Bill Amount</th><th>Last Note</th></tr>"
+
+    for denial in denials:
+        note = db.notes.find_one({"_id": denial["notes"][-1]})
+        table += "<tr><td>" + denial["dos"].strftime("%m/%d/%Y") + "</td><td>" + str(denial["bill_amt"]) + "</td><td>" + note["note"] + "<td colspan='3'><button>View Detail</button></td></tr>"
+        table += "</td></tr>"
+    table += "</table>"
+
+    return table
+
 def find_patient(lastnamefirstname, dob):
 
     if lastnamefirstname == "" and dob == "":
@@ -44,6 +65,7 @@ def find_patient(lastnamefirstname, dob):
 
     # Return patient _id ObjectId
     if patient:
+        global patient_selected
         patient_selected = patient
         return "Patient: " + patient_selected["last_name"] + ", " + patient_selected["first_name"] + " (" + patient_selected["dob"].strftime("%m/%d/%Y") + ")"
     else:
@@ -55,7 +77,7 @@ def upsert_denial(dos, bill_amt, note, user = ""):
     dat = {"input_date": datetime.now(), "input_user": user, "note": note}
     insert_note = db.notes.insert_one(dat)
 
-    inserted_denial = db.denials.find_one_and_update({"patient_id": patient_selected, "dos": datetime.strptime(dos, "%m/%d/%Y"), "bill_amt": bill_amt},
+    inserted_denial = db.denials.find_one_and_update({"patient_id": patient_selected['_id'], "dos": datetime.strptime(dos, "%m/%d/%Y"), "bill_amt": bill_amt},
                                                         {"$push": {"notes": insert_note.inserted_id}},
                                                         upsert=True),
     return inserted_denial
@@ -94,9 +116,9 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
                 record_billAmt = gr.Textbox(label="Bill Amount")
             note = gr.TextArea(label="Note")
             record_submit_btn = gr.Button("Submit")
-        with gr.Row():
-            noteList = []
-    with gr.Tab("Report"):
+        with gr.Column():
+            noteList = gr.HTML()
+    with gr.Tab("Search"):
         with gr.Row():
             filter = gr.Dropdown(label="Filter", choices=["Last Name", "First Name", "Date of Birth", "Date of Service", "Bill Amount", "Paid?"])
             condition = gr.Dropdown(label="Condition", choices=["Equals", "Contains"])
@@ -113,9 +135,11 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         output = gr.Markdown(label="Output")
     
     # Event Handlers
-    record_find_btn.click(fn = find_patient, inputs = [record_name, record_dob], outputs = record_patientList).success(
-        fn= lambda x: gr.Accordion(visible=True), outputs = record_input_accordion)
-    record_submit_btn.click(fn = upsert_denial, inputs = [record_dos, record_billAmt, note], outputs = noteList)
+    record_find_btn.click(fn = find_patient, inputs = [record_name, record_dob], outputs = record_patientList).then(
+        fn = lambda _: gr.Accordion(visible=True), outputs = record_input_accordion).then(
+        fn = list_denials, outputs = noteList)
+    record_submit_btn.click(fn = upsert_denial, inputs = [record_dos, record_billAmt, note], outputs = noteList).then(
+        fn = list_denials, outputs = noteList)
     
     setting_addNewPt_submit_btn.click(fn = add_patient, inputs = [ln, fn, dob], outputs = output)
 
