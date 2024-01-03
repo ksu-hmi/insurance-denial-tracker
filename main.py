@@ -21,7 +21,7 @@ db = client["denials_tracker_db"]
 
 # Functions
 def date_format(dateString):
-    for format in ('%m/%d/%y', '%m/%d/%Y'):
+    for format in ('%m/%d/%y', '%m/%d/%Y', '%m%d%Y'):
         try:
             return datetime.strptime(dateString, format)
         except ValueError:
@@ -34,22 +34,8 @@ def authenticate(username, session_state):
         session_state['user'] = username
         return "Login successful", session_state
     else:
+        session_state['user'] = "Guest"
         return "Invalid username", session_state
-
-def list_denials(session_state):
-    denials = db.denials.find({"patient_id": session_state['patient_id']}).sort("dos", -1)
-    table = "<table style='width: 100%'><tr><th style='width:10%'>Date of Service</th><th style='width:10%'>Bill Amount</th><th style='width:10%'>Status</th><th style='width:70%'>Notes</th></tr>"
-
-    for denial in denials:
-        table += "<tr valign='top'><td>" + denial["dos"].strftime("%m/%d/%Y") + "</td><td>" + str(denial["bill_amt"]) + "</td><td>" + denial["status"] + "</td>"
-        # list all notes in decending order
-        table += "<td><ul>"
-        for note in db.notes.find({"_id": {"$in": denial["notes"]}}).sort("input_date", -1):
-            table += "<li>" + "(" + note["input_date"].strftime("%m/%d/%Y") + ") " + note["input_user"] + ": " + note["note"] + "</li>"
-        table += "</ul></td></tr>"
-    table += "</table>"
-
-    return table
 
 def find_patient(lastname, firstname, dob, session_state):
 
@@ -77,6 +63,21 @@ def find_patient(lastname, firstname, dob, session_state):
         return "Patient: " + patient["last_name"] + ", " + patient["first_name"] + " (" + patient["dob"].strftime("%m/%d/%Y") + ")", session_state
     else:
         return "Patient not found", session_state
+    
+def list_denials(session_state):
+    denials = db.denials.find({"patient_id": session_state['patient_id']}).sort("dos", -1)
+    table = "<table style='width: 100%'><tr><th style='width:10%'>Date of Service</th><th style='width:10%'>Bill Amount</th><th style='width:10%'>Status</th><th style='width:70%'>Notes</th></tr>"
+
+    for denial in denials:
+        table += "<tr valign='top'><td>" + denial["dos"].strftime("%m/%d/%Y") + "</td><td>" + str(denial["bill_amt"]) + "</td><td>" + denial["status"] + "</td>"
+        # list all notes in decending order
+        table += "<td><ul>"
+        for note in db.notes.find({"_id": {"$in": denial["notes"]}}).sort("input_date", -1):
+            table += "<li>" + "(" + note["input_date"].strftime("%m/%d/%y") + ") <b>" + note["input_user"] + "</b>: " + note["note"] + "</li>"
+        table += "</ul></td></tr>"
+    table += "</table>"
+
+    return table
       
 def upsert_denial(dos, bill_amt, status, note, session_state):
     user = session_state["user"]
@@ -87,7 +88,7 @@ def upsert_denial(dos, bill_amt, status, note, session_state):
     insert_note = db.notes.insert_one(dat)
 
     # Insert denial
-    inserted_denial = db.denials.find_one_and_update({"patient_id": session_state['patient_id'], "dos": datetime.strptime(dos, "%m/%d/%Y"), "bill_amt": bill_amt}, 
+    inserted_denial = db.denials.find_one_and_update({"patient_id": session_state['patient_id'], "dos": date_format(dos), "bill_amt": bill_amt}, 
                                                         {"$set": {"status": status}, "$push": {"notes": insert_note.inserted_id}},
                                                         upsert=True)
 
@@ -124,7 +125,7 @@ def update_username(session_state):
 
 # Gradio UI
 with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:   
-    session_state = gr.State({'user': "", 'patient_id': None})
+    session_state = gr.State({'user': "Guest", 'patient_id': None})
 
     username_label = gr.Markdown("Logged in as: Guest")
     with gr.Tab("Record"):
@@ -175,6 +176,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         fn = lambda: gr.Accordion(visible=True), outputs = record_input_accordion).then(
         fn = list_denials, inputs = session_state, outputs = noteList)
     record_submit_btn.click(fn = upsert_denial, inputs = [record_dos, record_billAmt, record_status, record_note, session_state], outputs = record_inputNote_label).then(
+        fn = lambda: gr.Accordion(open=False), outputs = record_input_accordion).then(
         fn = list_denials, inputs = session_state, outputs = noteList)
     
     settings_optionList_dropdown.input(fn = settings_options, inputs = settings_optionList_dropdown, outputs = [settings_login_grp, settings_addNewPt_grp])
