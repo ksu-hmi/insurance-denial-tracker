@@ -47,22 +47,24 @@ def list_denials():
 
     return table
 
-def find_patient(lastnamefirstname, dob):
+def find_patient(lastname, firstname, dob):
 
-    if lastnamefirstname == "" and dob == "":
-        dat = {}
-    elif lastnamefirstname == "":
-        dob = datetime.strptime(dob, "%m/%d/%Y")
-        dat = {"dob": dob}
-    elif dob == "":
-        ln = lastnamefirstname.split(",")[0].strip().upper()
-        fn = lastnamefirstname.split(",")[1].strip().upper()
-        dat = {"last_name": ln, "first_name": fn}
+    if lastname != "" and firstname == "" and dob == "":
+        dat = {"last_name": lastname.upper()}
+    elif lastname == "" and firstname != "" and dob == "":
+        dat = {"first_name": firstname.upper()}
+    elif lastname == "" and firstname == "" and dob != "":
+        dat = {"dob": date_format(dob)}
+    elif lastname != "" and firstname != "" and dob == "":
+        dat = {"last_name": lastname.upper(), "first_name": firstname.upper()}
+    elif lastname != "" and firstname == "" and dob != "":
+        dat = {"last_name": lastname.upper(), "dob": date_format(dob)}
+    elif lastname == "" and firstname != "" and dob != "":
+        dat = {"first_name": firstname.upper(), "dob": date_format(dob)}
+    elif lastname != "" and firstname != "" and dob != "":
+        dat = {"last_name": lastname.upper(), "first_name": firstname.upper(), "dob": date_format(dob)}
     else:
-        ln = lastnamefirstname.split(",")[0].strip()
-        fn = lastnamefirstname.split(",")[1].strip()
-        dob = datetime.strptime(dob, "%m/%d/%Y")
-        dat = {"last_name": ln, "first_name": fn, "dob": dob}
+        dat = {}
     
     patient = db.patients.find_one(dat)
 
@@ -108,7 +110,8 @@ def add_patient(ln, fn, dob):
 with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     with gr.Tab("Record"):
         with gr.Row():
-            record_name = gr.Textbox(label="Last Name, First Name")
+            record_lastName = gr.Textbox(label="Last Name")
+            record_fistName = gr.Textbox(label="First Name")
             record_dob = gr.Textbox(label="Date of Birth")
             record_find_btn = gr.Button("Find")
         with gr.Row():
@@ -138,7 +141,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         output = gr.Markdown(label="Output")
     
     # Event Handlers
-    record_find_btn.click(fn = find_patient, inputs = [record_name, record_dob], outputs = record_patientList).then(
+    record_find_btn.click(fn = find_patient, inputs = [record_lastName, record_fistName, record_dob], outputs = record_patientList).then(
         fn = lambda _: gr.Accordion(visible=True), outputs = record_input_accordion).then(
         fn = list_denials, outputs = noteList)
     record_submit_btn.click(fn = upsert_denial, inputs = [record_dos, record_billAmt, note], outputs = noteList).then(
