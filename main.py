@@ -37,7 +37,7 @@ def list_denials():
     table = "<table style='width: 100%'><tr><th style='width:10%'>Date of Service</th><th style='width:10%'>Bill Amount</th><th style='width:10%'>Status</th><th style='width:70%'>Notes</th></tr>"
 
     for denial in denials:
-        table += "<tr valign='top'><td>" + denial["dos"].strftime("%m/%d/%Y") + "</td><td>" + str(denial["bill_amt"]) + "</td><td>" + 'denial["status"]' + "</td>"
+        table += "<tr valign='top'><td>" + denial["dos"].strftime("%m/%d/%Y") + "</td><td>" + str(denial["bill_amt"]) + "</td><td>" + denial["status"] + "</td>"
         # list all notes in decending order
         table += "<td><ul>"
         for note in db.notes.find({"_id": {"$in": denial["notes"]}}).sort("input_date", -1):
@@ -76,16 +76,20 @@ def find_patient(lastname, firstname, dob):
     else:
         return "Patient not found"
       
-def upsert_denial(dos, bill_amt, note, user = ""):
+def upsert_denial(dos, bill_amt, status, note):
+    user = ""
     bill_amt = round(float(bill_amt),2)
 
+    # Insert note
     dat = {"input_date": datetime.now(), "input_user": user, "note": note}
     insert_note = db.notes.insert_one(dat)
 
-    inserted_denial = db.denials.find_one_and_update({"patient_id": patient_selected['_id'], "dos": datetime.strptime(dos, "%m/%d/%Y"), "bill_amt": bill_amt},
-                                                        {"$push": {"notes": insert_note.inserted_id}},
-                                                        upsert=True),
-    return inserted_denial
+    # Insert denial
+    inserted_denial = db.denials.find_one_and_update({"patient_id": patient_selected['_id'], "dos": datetime.strptime(dos, "%m/%d/%Y"), "bill_amt": bill_amt}, 
+                                                        {"$set": {"status": status}, "$push": {"notes": insert_note.inserted_id}},
+                                                        upsert=True)
+
+    return "Note added"
 
 def add_patient(ln, fn, dob):
     ln = ln.upper()
@@ -111,7 +115,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     with gr.Tab("Record"):
         with gr.Row():
             record_lastName = gr.Textbox(label="Last Name")
-            record_fistName = gr.Textbox(label="First Name")
+            record_firstName = gr.Textbox(label="First Name")
             record_dob = gr.Textbox(label="Date of Birth")
             record_find_btn = gr.Button("Find")
         with gr.Row():
@@ -120,11 +124,14 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
             with gr.Row():
                 record_dos = gr.Textbox(label="Date of Service")
                 record_billAmt = gr.Textbox(label="Bill Amount")
-            note = gr.TextArea(label="Note")
+                record_status = gr.Dropdown(label="Status", choices=["Denied", "Appealed", "Paid", "Write Off", "Other"])
+            record_note = gr.TextArea(label="Note")
             record_submit_btn = gr.Button("Submit")
+        with gr.Row():
+            record_submit_success = gr.Markdown()
         with gr.Column():
             noteList = gr.HTML()
-    with gr.Tab("Search"):
+    with gr.Tab("Report"):
         with gr.Row():
             filter = gr.Dropdown(label="Filter", choices=["Last Name", "First Name", "Date of Birth", "Date of Service", "Bill Amount", "Paid?"])
             condition = gr.Dropdown(label="Condition", choices=["Equals", "Contains"])
@@ -141,10 +148,10 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         output = gr.Markdown(label="Output")
     
     # Event Handlers
-    record_find_btn.click(fn = find_patient, inputs = [record_lastName, record_fistName, record_dob], outputs = record_patientList).then(
+    record_find_btn.click(fn = find_patient, inputs = [record_lastName, record_firstName, record_dob], outputs = record_patientList).then(
         fn = lambda _: gr.Accordion(visible=True), outputs = record_input_accordion).then(
         fn = list_denials, outputs = noteList)
-    record_submit_btn.click(fn = upsert_denial, inputs = [record_dos, record_billAmt, note], outputs = noteList).then(
+    record_submit_btn.click(fn = upsert_denial, inputs = [record_dos, record_billAmt, record_status, record_note], outputs = record_submit_success).then(
         fn = list_denials, outputs = noteList)
     
     setting_addNewPt_submit_btn.click(fn = add_patient, inputs = [ln, fn, dob], outputs = output)
