@@ -34,12 +34,15 @@ def date_format(dateString):
 
 def list_denials():
     denials = db.denials.find({"patient_id": patient_selected['_id']}).sort("dos", -1)
-    table = "<table style='width: 100%;'><tr><th>Date of Service</th><th>Bill Amount</th><th>Last Note</th></tr>"
+    table = "<table style='width: 100%'><tr><th style='width:10%'>Date of Service</th><th style='width:10%'>Bill Amount</th><th style='width:10%'>Status</th><th style='width:70%'>Notes</th></tr>"
 
     for denial in denials:
-        note = db.notes.find_one({"_id": denial["notes"][-1]})
-        table += "<tr><td>" + denial["dos"].strftime("%m/%d/%Y") + "</td><td>" + str(denial["bill_amt"]) + "</td><td>" + note["note"] + "<td colspan='3'><button>View Detail</button></td></tr>"
-        table += "</td></tr>"
+        table += "<tr valign='top'><td>" + denial["dos"].strftime("%m/%d/%Y") + "</td><td>" + str(denial["bill_amt"]) + "</td><td>" + 'denial["status"]' + "</td>"
+        # list all notes in decending order
+        table += "<td><ul>"
+        for note in db.notes.find({"_id": {"$in": denial["notes"]}}).sort("input_date", -1):
+            table += "<li>" + "(" + note["input_date"].strftime("%m/%d/%Y") + ") " + note["input_user"] + ": " + note["note"] + "</li>"
+        table += "</ul></td></tr>"
     table += "</table>"
 
     return table
