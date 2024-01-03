@@ -8,10 +8,6 @@ from datetime import datetime
 if "MONGODB_PATH" not in os.environ:
     os.environ["MONGODB_PATH"] = "mongodb://127.0.0.1:27017"
 
-# Declare variables
-patient_selected = None
-user_name = ""
-
 # Connect to MongoDB
 print("Connecting to the database...")
 client = MongoClient(os.environ["MONGODB_PATH"])
@@ -32,8 +28,16 @@ def date_format(dateString):
             pass
     raise ValueError('no valid date format found')
 
-def list_denials():
-    denials = db.denials.find({"patient_id": patient_selected['_id']}).sort("dos", -1)
+def authenticate(username, session_state):
+    user = db.users.find_one({"username": username})
+    if user:
+        session_state['user'] = username
+        return "Login successful", session_state
+    else:
+        return "Invalid username", session_state
+
+def list_denials(session_state):
+    denials = db.denials.find({"patient_id": session_state['patient_id']}).sort("dos", -1)
     table = "<table style='width: 100%'><tr><th style='width:10%'>Date of Service</th><th style='width:10%'>Bill Amount</th><th style='width:10%'>Status</th><th style='width:70%'>Notes</th></tr>"
 
     for denial in denials:
@@ -47,7 +51,7 @@ def list_denials():
 
     return table
 
-def find_patient(lastname, firstname, dob):
+def find_patient(lastname, firstname, dob, session_state):
 
     if lastname != "" and firstname == "" and dob == "":
         dat = {"last_name": lastname.upper()}
@@ -68,16 +72,14 @@ def find_patient(lastname, firstname, dob):
     
     patient = db.patients.find_one(dat)
 
-    # Return patient _id ObjectId
     if patient:
-        global patient_selected
-        patient_selected = patient
-        return "Patient: " + patient_selected["last_name"] + ", " + patient_selected["first_name"] + " (" + patient_selected["dob"].strftime("%m/%d/%Y") + ")"
+        session_state['patient_id'] = patient["_id"]
+        return "Patient: " + patient["last_name"] + ", " + patient["first_name"] + " (" + patient["dob"].strftime("%m/%d/%Y") + ")", session_state
     else:
-        return "Patient not found"
+        return "Patient not found", session_state
       
-def upsert_denial(dos, bill_amt, status, note):
-    user = ""
+def upsert_denial(dos, bill_amt, status, note, session_state):
+    user = session_state["user"]
     bill_amt = round(float(bill_amt),2)
 
     # Insert note
@@ -85,11 +87,17 @@ def upsert_denial(dos, bill_amt, status, note):
     insert_note = db.notes.insert_one(dat)
 
     # Insert denial
-    inserted_denial = db.denials.find_one_and_update({"patient_id": patient_selected['_id'], "dos": datetime.strptime(dos, "%m/%d/%Y"), "bill_amt": bill_amt}, 
+    inserted_denial = db.denials.find_one_and_update({"patient_id": session_state['patient_id'], "dos": datetime.strptime(dos, "%m/%d/%Y"), "bill_amt": bill_amt}, 
                                                         {"$set": {"status": status}, "$push": {"notes": insert_note.inserted_id}},
                                                         upsert=True)
 
     return "Note added"
+
+def settings_options(selection):
+    if selection == "Login":
+        return [gr.Group(visible=True), gr.Group(visible=False)]
+    elif selection == "Add New Patient":
+        return [gr.Group(visible=False), gr.Group(visible=True)]
 
 def add_patient(ln, fn, dob):
     ln = ln.upper()
@@ -110,8 +118,15 @@ def add_patient(ln, fn, dob):
 
     return output
 
+def update_username(session_state):
+    name = session_state['user']
+    return gr.Markdown("Logged in as: " + name)
+
 # Gradio UI
-with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
+with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:   
+    session_state = gr.State({'user': "", 'patient_id': None})
+
+    username_label = gr.Markdown("Logged in as: Guest")
     with gr.Tab("Record"):
         with gr.Row():
             record_lastName = gr.Textbox(label="Last Name")
@@ -128,7 +143,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
             record_note = gr.TextArea(label="Note")
             record_submit_btn = gr.Button("Submit")
         with gr.Row():
-            record_submit_success = gr.Markdown()
+            record_inputNote_label = gr.Markdown()
         with gr.Column():
             noteList = gr.HTML()
     with gr.Tab("Report"):
@@ -138,22 +153,34 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
             value = gr.Textbox (label="Value")
             filter_btn = gr.Button("Filter")
         out = gr.TextArea(label="Results")
-    with gr.Tab("Settings"):
-        settings_list = gr.Dropdown(label="Options", choices=["Add New Patient"], value="Add New Patient")
-        with gr.Row():            
-            ln = gr.Textbox(label="Last Name")
-            fn = gr.Textbox(label="First Name")
-            dob = gr.Textbox(label="Date of Birth")
-            setting_addNewPt_submit_btn = gr.Button("Submit")
-        output = gr.Markdown(label="Output")
+    with gr.Tab("Setting"):
+        settings_optionList_dropdown = gr.Dropdown(label="Options", choices=["Login", "Add New Patient"])
+        with gr.Group(visible=False) as settings_login_grp:
+            with gr.Row():
+                settings_login_username = gr.Textbox(label="Username")
+                settings_login_password = gr.Textbox(label="Password", interactive=False)
+                settings_login_login_btn = gr.Button("Login")
+            with gr.Row():
+                settings_login_label = gr.Markdown()
+        with gr.Group(visible=False) as settings_addNewPt_grp:
+            with gr.Row():            
+                settings_lastName = gr.Textbox(label="Last Name")
+                settings_firstName = gr.Textbox(label="First Name")
+                settings_dob = gr.Textbox(label="Date of Birth")
+                setting_addNewPt_submit_btn = gr.Button("Submit")
+            setting_addNewPt_label = gr.Markdown(label="Output")
     
     # Event Handlers
-    record_find_btn.click(fn = find_patient, inputs = [record_lastName, record_firstName, record_dob], outputs = record_patientList).then(
-        fn = lambda _: gr.Accordion(visible=True), outputs = record_input_accordion).then(
-        fn = list_denials, outputs = noteList)
-    record_submit_btn.click(fn = upsert_denial, inputs = [record_dos, record_billAmt, record_status, record_note], outputs = record_submit_success).then(
-        fn = list_denials, outputs = noteList)
+    record_find_btn.click(fn = find_patient, inputs = [record_lastName, record_firstName, record_dob, session_state], outputs = [record_patientList, session_state]).then(
+        fn = lambda: gr.Accordion(visible=True), outputs = record_input_accordion).then(
+        fn = list_denials, inputs = session_state, outputs = noteList)
+    record_submit_btn.click(fn = upsert_denial, inputs = [record_dos, record_billAmt, record_status, record_note, session_state], outputs = record_inputNote_label).then(
+        fn = list_denials, inputs = session_state, outputs = noteList)
     
-    setting_addNewPt_submit_btn.click(fn = add_patient, inputs = [ln, fn, dob], outputs = output)
+    settings_optionList_dropdown.input(fn = settings_options, inputs = settings_optionList_dropdown, outputs = [settings_login_grp, settings_addNewPt_grp])
+    settings_login_login_btn.click(fn = authenticate, inputs = [settings_login_username, session_state], outputs = [settings_login_label, session_state]).then(
+        fn = update_username, inputs = session_state, outputs = username_label)
+    setting_addNewPt_submit_btn.click(fn = add_patient, inputs = [settings_lastName, settings_firstName, settings_dob], outputs = setting_addNewPt_label)
 
+# Run Gradio server
 ui.launch(server_name='0.0.0.0', show_api=False)
