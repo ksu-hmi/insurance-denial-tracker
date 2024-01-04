@@ -80,17 +80,30 @@ def list_denials(session_state):
 
     return table
       
-def upsert_denial(dos, bill_amt, status, note, session_state):
+def set_denial(dos, bill_amt, status, paid_amt, note, session_state):
+    if dos == "":
+        return "Date of Service cannot be blank"
+    
+    if bill_amt != "":
+        bill_amt = round(float(bill_amt),2)
+    else:
+        bill_amt = 0.00
+
+    if paid_amt != "":
+        paid_amt = round(float(paid_amt),2)
+    else:
+        paid_amt = 0.00
+
     user = session_state["user"]
-    bill_amt = round(float(bill_amt),2)
 
     # Insert note
     dat = {"input_date": datetime.now(), "input_user": user, "note": note}
     insert_note = db.notes.insert_one(dat)
 
     # Insert denial
-    inserted_denial = db.denials.find_one_and_update({"patient_id": session_state['patient_id'], "dos": date_format(dos), "bill_amt": bill_amt}, 
-                                                        {"$set": {"status": status}, "$push": {"notes": insert_note.inserted_id}},
+    inserted_denial = db.denials.find_one_and_update({"patient_id": session_state['patient_id'], "dos": date_format(dos)}, 
+                                                        {"$set": {"bill_amt": bill_amt, "status": status, "paid_amt": paid_amt},
+                                                            "$push": {"notes": insert_note.inserted_id}},
                                                         upsert=True)
 
     return "Note added"
@@ -143,6 +156,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
                     record_dos = gr.Textbox(label="Date of Service")
                     record_billAmt = gr.Textbox(label="Bill Amount")
                     record_status = gr.Dropdown(label="Status", choices=["Denied", "Appealed", "Paid", "Write Off", "Other"], value="Denied")
+                    record_paidAmt = gr.Textbox(label="Paid Amount", visible=False)
                 record_note = gr.TextArea(label="Note")
                 record_submit_btn = gr.Button("Submit")
                 with gr.Row():
@@ -177,7 +191,8 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     record_find_btn.click(fn = find_patient, inputs = [record_lastName, record_firstName, record_dob, session_state], outputs = [record_patientList, session_state]).then(
         fn = lambda x: gr.Column(visible=True) if x['patient_id'] != "" else gr.Column(visible=False), inputs = session_state, outputs = record_patient_grp).then(
         fn = list_denials, inputs = session_state, outputs = noteList)
-    record_submit_btn.click(fn = upsert_denial, inputs = [record_dos, record_billAmt, record_status, record_note, session_state], outputs = record_inputNote_label).then(
+    record_status.change(fn = lambda x: gr.Textbox(visible=True) if x == "Paid" else gr.Textbox(visible=False), inputs = record_status, outputs = record_paidAmt)
+    record_submit_btn.click(fn = set_denial, inputs = [record_dos, record_billAmt, record_status, record_paidAmt, record_note, session_state], outputs = record_inputNote_label).then(
         fn = list_denials, inputs = session_state, outputs = noteList)
     
     settings_optionList_dropdown.input(fn = settings_options, inputs = settings_optionList_dropdown, outputs = [settings_login_grp, settings_addNewPt_grp])
