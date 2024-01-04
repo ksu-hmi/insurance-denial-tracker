@@ -62,6 +62,7 @@ def find_patient(lastname, firstname, dob, session_state):
         session_state['patient_id'] = patient["_id"]
         return "Patient: " + patient["last_name"] + ", " + patient["first_name"] + " (" + patient["dob"].strftime("%m/%d/%Y") + ")", session_state
     else:
+        session_state['patient_id'] = ""
         return "Patient not found", session_state
     
 def list_denials(session_state):
@@ -96,9 +97,9 @@ def upsert_denial(dos, bill_amt, status, note, session_state):
 
 def settings_options(selection):
     if selection == "Login":
-        return [gr.Group(visible=True), gr.Group(visible=False)]
+        return [gr.Column(visible=True), gr.Column(visible=False)]
     elif selection == "Add New Patient":
-        return [gr.Group(visible=False), gr.Group(visible=True)]
+        return [gr.Column(visible=False), gr.Column(visible=True)]
 
 def add_patient(ln, fn, dob):
     ln = ln.upper()
@@ -125,7 +126,7 @@ def update_username(session_state):
 
 # Gradio UI
 with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:   
-    session_state = gr.State({'user': "Guest", 'patient_id': None})
+    session_state = gr.State({'user': "Guest", 'patient_id': ""})
 
     username_label = gr.Markdown("Logged in as: Guest")
     with gr.Tab("Record"):
@@ -136,17 +137,18 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
             record_find_btn = gr.Button("Find")
         with gr.Row():
             record_patientList = gr.Markdown()
-        with gr.Accordion(label= "Input new note", visible=False, open=False) as record_input_accordion:
-            with gr.Row():
-                record_dos = gr.Textbox(label="Date of Service")
-                record_billAmt = gr.Textbox(label="Bill Amount")
-                record_status = gr.Dropdown(label="Status", choices=["Denied", "Appealed", "Paid", "Write Off", "Other"])
-            record_note = gr.TextArea(label="Note")
-            record_submit_btn = gr.Button("Submit")
-        with gr.Row():
-            record_inputNote_label = gr.Markdown()
-        with gr.Column():
-            noteList = gr.HTML()
+        with gr.Column(visible=False) as record_patient_grp:
+            with gr.Accordion(label= "Input new note", visible=False, open=False) as record_input_accordion:
+                with gr.Row():
+                    record_dos = gr.Textbox(label="Date of Service")
+                    record_billAmt = gr.Textbox(label="Bill Amount")
+                    record_status = gr.Dropdown(label="Status", choices=["Denied", "Appealed", "Paid", "Write Off", "Other"], value="Denied")
+                record_note = gr.TextArea(label="Note")
+                record_submit_btn = gr.Button("Submit")
+                with gr.Row():
+                    record_inputNote_label = gr.Markdown()
+            with gr.Column():
+                noteList = gr.HTML()
     with gr.Tab("Report"):
         with gr.Row():
             filter = gr.Dropdown(label="Filter", choices=["Last Name", "First Name", "Date of Birth", "Date of Service", "Bill Amount", "Paid?"])
@@ -155,15 +157,15 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
             filter_btn = gr.Button("Filter")
         out = gr.TextArea(label="Results")
     with gr.Tab("Setting"):
-        settings_optionList_dropdown = gr.Dropdown(label="Options", choices=["Login", "Add New Patient"])
-        with gr.Group(visible=False) as settings_login_grp:
+        settings_optionList_dropdown = gr.Dropdown(label="Options", choices=["Login", "Add New Patient"], value="Login")
+        with gr.Column(visible=True) as settings_login_grp:
             with gr.Row():
                 settings_login_username = gr.Textbox(label="Username")
                 settings_login_password = gr.Textbox(label="Password", interactive=False)
                 settings_login_login_btn = gr.Button("Login")
             with gr.Row():
                 settings_login_label = gr.Markdown()
-        with gr.Group(visible=False) as settings_addNewPt_grp:
+        with gr.Column(visible=False) as settings_addNewPt_grp:
             with gr.Row():            
                 settings_lastName = gr.Textbox(label="Last Name")
                 settings_firstName = gr.Textbox(label="First Name")
@@ -173,14 +175,14 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     
     # Event Handlers
     record_find_btn.click(fn = find_patient, inputs = [record_lastName, record_firstName, record_dob, session_state], outputs = [record_patientList, session_state]).then(
-        fn = lambda: gr.Accordion(visible=True), outputs = record_input_accordion).then(
+        fn = lambda x: gr.Column(visible=True) if x['patient_id'] != "" else gr.Column(visible=False), inputs = session_state, outputs = record_patient_grp).then(
         fn = list_denials, inputs = session_state, outputs = noteList)
     record_submit_btn.click(fn = upsert_denial, inputs = [record_dos, record_billAmt, record_status, record_note, session_state], outputs = record_inputNote_label).then(
-        fn = lambda: gr.Accordion(open=False), outputs = record_input_accordion).then(
         fn = list_denials, inputs = session_state, outputs = noteList)
     
     settings_optionList_dropdown.input(fn = settings_options, inputs = settings_optionList_dropdown, outputs = [settings_login_grp, settings_addNewPt_grp])
     settings_login_login_btn.click(fn = authenticate, inputs = [settings_login_username, session_state], outputs = [settings_login_label, session_state]).then(
+        fn = lambda x: gr.Accordion(visible=True) if x['user'] != "Guest" else gr.Accordion(visible=False), inputs = session_state, outputs = record_input_accordion).then(
         fn = update_username, inputs = session_state, outputs = username_label)
     setting_addNewPt_submit_btn.click(fn = add_patient, inputs = [settings_lastName, settings_firstName, settings_dob], outputs = setting_addNewPt_label)
 
