@@ -218,6 +218,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         fn = list_denials, inputs = session_state, outputs = noteList)
     record_status.change(fn = lambda x: gr.Textbox(visible=True) if x == "Paid" else gr.Textbox(visible=False), inputs = record_status, outputs = record_paidAmt)
     record_submit_btn.click(fn = set_denial, inputs = [record_dos, record_billAmt, record_status, record_paidAmt, record_note, session_state], outputs = record_inputNote_label).then(
+        fn = lambda: gr.Textbox(value=""), outputs = record_billAmt).then(
         fn = list_denials, inputs = session_state, outputs = noteList)
     
     settings_optionList_dropdown.input(fn = settings_options, inputs = settings_optionList_dropdown, outputs = [settings_login_grp, settings_addNewPt_grp])
