@@ -92,37 +92,40 @@ def set_denial(dos, bill_amt, status, paid_amt, note, session_state):
     if dos == "":
         return "Date of Service cannot be blank"
     
-    if paid_amt != "":
-        paid_amt = round(float(paid_amt),2)
-    else:
-        paid_amt = 0.00
-
     user = session_state["user"]
 
     #find denial
     denial = db.denials.find_one({"patient_id": ObjectId(session_state['patient_id']), "dos": date_format(dos)})
 
-    if denial:
-
-        # Insert note
-        dat = {"input_date": datetime.now(), "input_user": user, "note": note}
-        insert_note = db.notes.insert_one(dat)
-
-        # if bill_amt is blank, use existing value
-        if bill_amt == "":
+    # if bill_amt is blank, use existing value
+    if bill_amt == "":
+        if denial:
             bill_amt = denial["bill_amt"]
         else:
-            bill_amt = round(float(bill_amt),2)
-
-        # Update denial
-        updated_denial = db.denials.find_one_and_update({"patient_id": ObjectId(session_state['patient_id']), "dos": date_format(dos)}, 
-                                                            {"$set": {"bill_amt": bill_amt, "status": status, "paid_amt": paid_amt},
-                                                                "$push": {"notes": insert_note.inserted_id}},
-                                                            upsert=True)
-        
-        return "Note added"
+            bill_amt = 0.00
     else:
-        return "Error"
+        bill_amt = round(float(bill_amt),2)
+
+    # if paid_amt is blank, use existing value
+    if paid_amt == "":
+        if denial:
+            paid_amt = denial["paid_amt"]
+        else:
+            paid_amt = 0.00
+    else:
+        paid_amt = round(float(paid_amt),2)
+
+    # Insert note
+    dat = {"input_date": datetime.now(), "input_user": user, "note": note}
+    insert_note = db.notes.insert_one(dat)
+
+    # Update denial
+    updated_denial = db.denials.find_one_and_update({"patient_id": ObjectId(session_state['patient_id']), "dos": date_format(dos)}, 
+                                                        {"$set": {"bill_amt": bill_amt, "status": status, "paid_amt": paid_amt},
+                                                            "$push": {"notes": insert_note.inserted_id}},
+                                                        upsert=True)
+    
+    return "Note added"
 
 def settings_options(selection):
     if selection == "Login":
