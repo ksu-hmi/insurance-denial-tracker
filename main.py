@@ -2,6 +2,7 @@ import os
 import sys
 import gradio as gr
 from pymongo import MongoClient
+from bson.objectid import ObjectId
 from datetime import datetime
 
 # Set up environment variables
@@ -37,7 +38,7 @@ def authenticate(username, session_state):
         session_state['user'] = "Guest"
         return "Invalid username", session_state
 
-def find_patient(lastname, firstname, dob, session_state):
+def get_patients(lastname, firstname, dob, session_state):
 
     if lastname != "" and firstname == "" and dob == "":
         dat = {"last_name": lastname.upper()}
@@ -56,17 +57,24 @@ def find_patient(lastname, firstname, dob, session_state):
     else:
         dat = {}
     
-    patient = db.patients.find_one(dat)
+    patients = db.patients.find(dat)
 
-    if patient:
-        session_state['patient_id'] = patient["_id"]
-        return "Patient: " + patient["last_name"] + ", " + patient["first_name"] + " (" + patient["dob"].strftime("%m/%d/%Y") + ")", session_state
-    else:
-        session_state['patient_id'] = ""
-        return "Patient not found", session_state
+    session_state['patient_list'] = []
+
+    for patient in patients:
+        session_state['patient_list'].append((patient["last_name"] + ", " + patient["first_name"] + " (" + patient["dob"].strftime("%m/%d/%Y") + ")", patient["_id"]))
+    
+    # sort by last name
+    session_state['patient_list'].sort(key=lambda x: x[0])
+
+    return session_state
+    
+def select_patient(patient_id, session_state):
+    session_state['patient_id'] = patient_id
+    return session_state
     
 def list_denials(session_state):
-    denials = db.denials.find({"patient_id": session_state['patient_id']}).sort("dos", -1)
+    denials = db.denials.find({"patient_id": ObjectId(session_state['patient_id'])}).sort("dos", -1)
     table = "<table style='width: 100%'><tr><th style='width:10%'>Date of Service</th><th style='width:10%'>Bill Amount</th><th style='width:10%'>Status</th><th style='width:70%'>Notes</th></tr>"
 
     for denial in denials:
@@ -101,7 +109,7 @@ def set_denial(dos, bill_amt, status, paid_amt, note, session_state):
     insert_note = db.notes.insert_one(dat)
 
     # Insert denial
-    inserted_denial = db.denials.find_one_and_update({"patient_id": session_state['patient_id'], "dos": date_format(dos)}, 
+    inserted_denial = db.denials.find_one_and_update({"patient_id": ObjectId(session_state['patient_id']), "dos": date_format(dos)}, 
                                                         {"$set": {"bill_amt": bill_amt, "status": status, "paid_amt": paid_amt},
                                                             "$push": {"notes": insert_note.inserted_id}},
                                                         upsert=True)
@@ -139,7 +147,7 @@ def update_username(session_state):
 
 # Gradio UI
 with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:   
-    session_state = gr.State({'user': "Guest", 'patient_id': ""})
+    session_state = gr.State({'user': "Guest", 'patient_id': None, 'patient_list': []})
 
     username_label = gr.Markdown("Logged in as: Guest")
     with gr.Tab("Record"):
@@ -149,6 +157,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
             record_dob = gr.Textbox(label="Date of Birth")
             record_find_btn = gr.Button("Find")
         with gr.Row():
+            record_patientSelected_dropdown = gr.Dropdown(label="Patient selected")
             record_patientList = gr.Markdown()
         with gr.Column(visible=False) as record_patient_grp:
             with gr.Accordion(label= "Input new note", visible=False, open=False) as record_input_accordion:
@@ -188,7 +197,12 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
             setting_addNewPt_label = gr.Markdown(label="Output")
     
     # Event Handlers
-    record_find_btn.click(fn = find_patient, inputs = [record_lastName, record_firstName, record_dob, session_state], outputs = [record_patientList, session_state]).then(
+    record_find_btn.click(fn = get_patients, inputs = [record_lastName, record_firstName, record_dob, session_state], outputs = session_state).then(
+        fn = lambda: gr.Column(visible=False), outputs = record_patient_grp).then(
+        fn = lambda: gr.Dropdown(choices="", value=""), outputs = record_patientSelected_dropdown).then(
+        fn = lambda x: gr.Dropdown(choices=x['patient_list']), inputs = session_state, outputs = record_patientSelected_dropdown)
+        
+    record_patientSelected_dropdown.select(fn = select_patient, inputs = [record_patientSelected_dropdown, session_state], outputs = session_state).then(
         fn = lambda x: gr.Column(visible=True) if x['patient_id'] != "" else gr.Column(visible=False), inputs = session_state, outputs = record_patient_grp).then(
         fn = list_denials, inputs = session_state, outputs = noteList)
     record_status.change(fn = lambda x: gr.Textbox(visible=True) if x == "Paid" else gr.Textbox(visible=False), inputs = record_status, outputs = record_paidAmt)
