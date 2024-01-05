@@ -191,7 +191,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
             filter_btn = gr.Button("Filter")
         out = gr.TextArea(label="Results")
     with gr.Tab("Setting"):
-        settings_optionList_dropdown = gr.Dropdown(label="Options", choices=["Login", "Add New Patient"], value="Login")
+        settings_optionList_dropdown = gr.Dropdown(label="Options", choices=["Login"], value="Login")
         with gr.Column(visible=True) as settings_login_grp:
             with gr.Row():
                 settings_login_username = gr.Textbox(label="Username")
@@ -224,6 +224,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     settings_optionList_dropdown.input(fn = settings_options, inputs = settings_optionList_dropdown, outputs = [settings_login_grp, settings_addNewPt_grp])
     settings_login_login_btn.click(fn = authenticate, inputs = [settings_login_username, session_state], outputs = [settings_login_label, session_state]).then(
         fn = lambda x: gr.Accordion(visible=True) if x['user'] != "Guest" else gr.Accordion(visible=False), inputs = session_state, outputs = record_input_accordion).then(
+        fn = lambda x: gr.Dropdown(choices=["Login", "Add New Patient"]), inputs = settings_optionList_dropdown, outputs = settings_optionList_dropdown).then(
         fn = update_username, inputs = session_state, outputs = username_label)
     setting_addNewPt_submit_btn.click(fn = add_patient, inputs = [settings_lastName, settings_firstName, settings_dob], outputs = setting_addNewPt_label)
 
