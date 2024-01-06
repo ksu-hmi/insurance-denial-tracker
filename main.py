@@ -127,6 +127,43 @@ def set_denial(dos, bill_amt, status, paid_amt, note, session_state):
     
     return "Note added"
 
+def get_report(filter, condition, value):
+    table = []
+
+    if filter == "Date of Service":
+        if condition == "Equals":
+            denials = db.denials.find({"dos": date_format(value)})
+        elif condition == "Greater Than":
+            denials = db.denials.find({"dos": {"$gt": date_format(value)}})
+        elif condition == "Less Than":
+            denials = db.denials.find({"dos": {"$lt": date_format(value)}})
+
+    elif filter == "Bill Amount":
+        value = round(float(value),2)
+        if condition == "Equals":
+            denials = db.denials.find({"bill_amt": value})
+        elif condition == "Greater Than":
+            denials = db.denials.find({"bill_amt": {"$gt": value}})
+        elif condition == "Less Than":
+            denials = db.denials.find({"bill_amt": {"$lt": value}})
+
+    elif filter == "Status":
+        denials = db.denials.find({"status": value})
+
+    table = "<table><tr><th>Patient</th><th>Date of Service</th><th>Bill Amount</th><th>Status</th><th>Last note</th></tr>"
+
+    for denial in denials:
+        patient = db.patients.find_one({"_id": denial["patient_id"]})        
+        table += "<tr><td>" + patient["last_name"] + ", " + patient["first_name"] + " (" + patient["dob"].strftime("%m/%d/%Y") + ")</td>"
+        table += "<td>" + denial["dos"].strftime("%m/%d/%Y") + "</td>"
+        table += "<td>" + str(denial["bill_amt"]) + "</td>"
+        table += "<td>" + denial["status"] + "</td>"
+        table += "<td>" + db.notes.find_one({"_id": denial["notes"][0]})["note"] + "</td></tr>"
+    
+    table += "</table>"
+
+    return table
+
 def settings_options(selection):
     if selection == "Login":
         return [gr.Column(visible=True), gr.Column(visible=False)]
@@ -185,11 +222,11 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
                 noteList = gr.HTML()
     with gr.Tab("Report"):
         with gr.Row():
-            filter = gr.Dropdown(label="Filter", choices=["Last Name", "First Name", "Date of Birth", "Date of Service", "Bill Amount", "Paid?"])
-            condition = gr.Dropdown(label="Condition", choices=["Equals", "Contains"])
-            value = gr.Textbox (label="Value")
-            filter_btn = gr.Button("Filter")
-        out = gr.TextArea(label="Results")
+            report_filter = gr.Dropdown(label="Filter", choices=["Date of Service", "Bill Amount", "Status"])
+            report_condition = gr.Dropdown(label="Condition", choices=["Equals", "Greater Than", "Less Than"])
+            report_value = gr.Textbox (label="Value")
+            report_filter_btn = gr.Button("Filter")
+        report_list = gr.HTML()
     with gr.Tab("Setting"):
         settings_optionList_dropdown = gr.Dropdown(label="Options", choices=["Login"], value="Login")
         with gr.Column(visible=True) as settings_login_grp:
@@ -220,6 +257,8 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     record_submit_btn.click(fn = set_denial, inputs = [record_dos, record_billAmt, record_status, record_paidAmt, record_note, session_state], outputs = record_inputNote_label).then(
         fn = lambda: gr.Textbox(value=""), outputs = record_billAmt).then(
         fn = list_denials, inputs = session_state, outputs = noteList)
+    
+    report_filter_btn.click(fn = get_report, inputs = [report_filter, report_condition, report_value], outputs = report_list)
     
     settings_optionList_dropdown.input(fn = settings_options, inputs = settings_optionList_dropdown, outputs = [settings_login_grp, settings_addNewPt_grp])
     settings_login_login_btn.click(fn = authenticate, inputs = [settings_login_username, session_state], outputs = [settings_login_label, session_state]).then(
