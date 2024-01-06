@@ -20,6 +20,12 @@ except Exception as e:
     sys.exit(1)
 db = client["denials_tracker_db"]
 
+# check if any users exist
+if db.users.count_documents({}) == 0:
+    print("No users found. Create new admin account:")
+    username = input("Username: ")
+    db.users.insert_one({"username": username, "password": "", "role": "administrator"})
+
 # Functions
 def date_format(dateString):
     for format in ('%m/%d/%y', '%m/%d/%Y', '%m%d%Y'):
@@ -189,6 +195,22 @@ def add_patient(ln, fn, dob):
 
     return output
 
+def set_user(username, password = "", role = "user"):
+    user = {
+        "username": username,
+        "password": password,
+        "role": role
+    }
+
+    # check if user already exists
+    if db.users.find_one(user):
+        output = "User already exists"
+    else:
+        db.users.insert_one(user)
+        output = "User added"
+
+    return output
+
 def update_username(session_state):
     name = session_state['user']
     return gr.Markdown("Logged in as: " + name)
@@ -236,6 +258,14 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
                 settings_login_login_btn = gr.Button("Login")
             with gr.Row():
                 settings_login_label = gr.Markdown()
+        with gr.Column(visible=False) as settings_manageUser_grp:
+            with gr.Row():
+                settings_manageUser_username = gr.Textbox(label="Username")
+                settings_manageUser_password = gr.Textbox(label="Password", interactive=False)
+                settings_manageUser_role = gr.Dropdown(label="Role", choices=["administrator", "user"], value="user")
+                settings_manageUser_createUser_btn = gr.Button("Create User")
+            with gr.Row():
+                settings_manageUser_label = gr.Markdown()
         with gr.Column(visible=False) as settings_addNewPt_grp:
             with gr.Row():            
                 settings_lastName = gr.Textbox(label="Last Name")
@@ -260,11 +290,13 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     
     report_filter_btn.click(fn = get_report, inputs = [report_filter, report_condition, report_value], outputs = report_list)
     
-    settings_optionList_dropdown.input(fn = settings_options, inputs = settings_optionList_dropdown, outputs = [settings_login_grp, settings_addNewPt_grp])
-    settings_login_login_btn.click(fn = authenticate, inputs = [settings_login_username, session_state], outputs = [settings_login_label, session_state]).then(
+    settings_optionList_dropdown.select(fn = settings_options, inputs = settings_optionList_dropdown, outputs = [settings_login_grp, settings_addNewPt_grp])
+    settings_login_login_btn.click(
+        fn = authenticate, inputs = [settings_login_username, session_state], outputs = [settings_login_label, session_state]).then(
         fn = lambda x: gr.Accordion(visible=True) if x['user'] != "Guest" else gr.Accordion(visible=False), inputs = session_state, outputs = record_input_accordion).then(
-        fn = lambda x: gr.Dropdown(choices=["Login", "Add New Patient"]), inputs = settings_optionList_dropdown, outputs = settings_optionList_dropdown).then(
+        fn = lambda: gr.Dropdown(choices=["Login", "Add New Patient"]), outputs = settings_optionList_dropdown).then(
         fn = update_username, inputs = session_state, outputs = username_label)
+    settings_manageUser_createUser_btn.click(fn = set_user, inputs = [settings_manageUser_username, settings_manageUser_password], outputs = settings_manageUser_label)
     setting_addNewPt_submit_btn.click(fn = add_patient, inputs = [settings_lastName, settings_firstName, settings_dob], outputs = setting_addNewPt_label)
 
 # Run Gradio server
