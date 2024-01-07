@@ -47,19 +47,19 @@ def authenticate(username, session_state):
 def get_patients(lastname, firstname, dob, session_state):
 
     if lastname != "" and firstname == "" and dob == "":
-        dat = {"last_name": lastname.upper()}
+        dat = {"last_name": {"$regex": lastname, "$options": "i"}}
     elif lastname == "" and firstname != "" and dob == "":
-        dat = {"first_name": firstname.upper()}
+        dat = {"first_name": {"$regex": firstname, "$options": "i"}}
     elif lastname == "" and firstname == "" and dob != "":
         dat = {"dob": date_format(dob)}
     elif lastname != "" and firstname != "" and dob == "":
-        dat = {"last_name": lastname.upper(), "first_name": firstname.upper()}
+        dat = {"last_name": {"$regex": lastname, "$options": "i"}, "first_name": {"$regex": firstname, "$options": "i"}}
     elif lastname != "" and firstname == "" and dob != "":
-        dat = {"last_name": lastname.upper(), "dob": date_format(dob)}
+        dat = {"last_name": {"$regex": lastname, "$options": "i"}, "dob": date_format(dob)}
     elif lastname == "" and firstname != "" and dob != "":
-        dat = {"first_name": firstname.upper(), "dob": date_format(dob)}
+        dat = {"first_name": {"$regex": firstname, "$options": "i"}, "dob": date_format(dob)}
     elif lastname != "" and firstname != "" and dob != "":
-        dat = {"last_name": lastname.upper(), "first_name": firstname.upper(), "dob": date_format(dob)}
+        dat = {"last_name": {"$regex": lastname, "$options": "i"}, "first_name": {"$regex": firstname, "$options": "i"}, "dob": date_format(dob)}
     else:
         dat = {}
     
