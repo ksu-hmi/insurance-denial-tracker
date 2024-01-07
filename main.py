@@ -197,8 +197,6 @@ def get_report(report_state):
     else:
         sort = []
 
-    print("Filter: ", filter)
-    print("Sort: ", sort)
     denials = db.denials.find(filter).sort(sort)      
 
     # build table
