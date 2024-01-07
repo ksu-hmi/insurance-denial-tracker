@@ -133,30 +133,77 @@ def set_denial(dos, bill_amt, status, paid_amt, note, session_state):
     
     return "Note added"
 
-def get_report(filter, condition, value):
+def gather_report_state(filter, filter_condition, value, sort, sort_condition):
+    report_state = {
+        "filter": filter,
+        "filter_condition": filter_condition,
+        "filter_value": value,
+        "sort": sort,
+        "sort_condition": sort_condition
+    }
+    return report_state
+
+def get_report(report_state):
+
+    # build filter
+    if report_state["filter"] == "Date of Service":
+        filter = "dos"
+    elif report_state["filter"] == "Bill Amount":
+        filter = "bill_amt"
+    elif report_state["filter"] == "Status":
+        filter = "status"
+    else:
+        filter = ""
+
+    if report_state["filter_condition"] == "Equals":
+        filter_condition = "$eq"
+    elif report_state["filter_condition"] == "Greater Than":
+        filter_condition = "$gt"
+    elif report_state["filter_condition"] == "Less Than":
+        filter_condition = "$lt"
+    else:
+        filter_condition = ""
+
+    if filter == "dos":
+        filter = {filter: date_format(report_state["filter_value"])}
+    elif filter == "bill_amt" or filter == "paid_amt":
+        filter = {filter: {filter_condition: float(report_state["filter_value"])}}
+    elif filter == "status":
+        filter = {filter: report_state["filter_value"]}
+    else:
+        filter = {}
+
+    # build sort
+    if report_state["sort"] == "Date of Service":
+        sort = "dos"
+    elif report_state["sort"] == "Bill Amount":
+        sort = "bill_amt"
+    elif report_state["sort"] == "Status":
+        sort = "status"
+    elif report_state["sort"] == "Last Note":
+        sort = "notes"
+    else:
+        sort = ""
+
+    if report_state["sort_condition"] == "Ascending":
+        sort_condition = 1
+    elif report_state["sort_condition"] == "Descending":
+        sort_condition = -1
+    else:
+        sort_condition = ""
+
+    if sort != "" and sort_condition != "":
+        sort = [(sort, sort_condition)]
+    else:
+        sort = []
+
+    print("Filter: ", filter)
+    print("Sort: ", sort)
+    denials = db.denials.find(filter).sort(sort)      
+
+    # build table
     table = []
-
-    if filter == "Date of Service":
-        if condition == "Equals":
-            denials = db.denials.find({"dos": date_format(value)})
-        elif condition == "Greater Than":
-            denials = db.denials.find({"dos": {"$gt": date_format(value)}})
-        elif condition == "Less Than":
-            denials = db.denials.find({"dos": {"$lt": date_format(value)}})
-
-    elif filter == "Bill Amount":
-        value = round(float(value),2)
-        if condition == "Equals":
-            denials = db.denials.find({"bill_amt": value})
-        elif condition == "Greater Than":
-            denials = db.denials.find({"bill_amt": {"$gt": value}})
-        elif condition == "Less Than":
-            denials = db.denials.find({"bill_amt": {"$lt": value}})
-
-    elif filter == "Status":
-        denials = db.denials.find({"status": value})
-
-    table = "<table><tr><th>Patient</th><th>Date of Service</th><th>Bill Amount</th><th>Status</th><th>Last note</th></tr>"
+    table = "<table><tr><th>Patient</th><th>Date of Service</th><th>Bill Amount</th><th>Status</th><th>Last Note</th></tr>"
 
     for denial in denials:
         patient = db.patients.find_one({"_id": denial["patient_id"]})        
@@ -164,7 +211,8 @@ def get_report(filter, condition, value):
         table += "<td>" + denial["dos"].strftime("%m/%d/%Y") + "</td>"
         table += "<td>" + str(denial["bill_amt"]) + "</td>"
         table += "<td>" + denial["status"] + "</td>"
-        table += "<td>" + db.notes.find_one({"_id": denial["notes"][0]})["note"] + "</td></tr>"
+        note = db.notes.find_one({"_id": denial["notes"][-1]})
+        table += "<td>" + "(" + note["input_date"].strftime("%m/%d/%y") + ") <b>" + note["input_user"] + "</b>: " + note["note"] + "</td></tr>"
     
     table += "</table>"
 
@@ -243,11 +291,15 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
             with gr.Column():
                 noteList = gr.HTML()
     with gr.Tab("Report"):
+        report_state = gr.State()
         with gr.Row():
-            report_filter = gr.Dropdown(label="Filter", choices=["Date of Service", "Bill Amount", "Status"])
-            report_condition = gr.Dropdown(label="Condition", choices=["Equals", "Greater Than", "Less Than"])
-            report_value = gr.Textbox (label="Value")
-            report_filter_btn = gr.Button("Filter")
+            report_filter = gr.Dropdown(label="Filter", choices=["Date of Service", "Bill Amount", "Status"], value="Status")
+            report_filter_condition = gr.Dropdown(label="Condition", choices=["Equals", "Greater Than", "Less Than"], value="Equals")
+            report_filter_value = gr.Textbox (label="Value", value="Denied")
+        with gr.Row():
+            report_sort = gr.Dropdown(label="Sort", choices=["Date of Service", "Bill Amount", "Status", "Last Note"], value="Bill Amount")
+            report_sort_condition = gr.Dropdown(label="Condition", choices=["Ascending", "Descending"], value="Descending")
+        report_create_btn = gr.Button("Create Report")
         report_list = gr.HTML()
     with gr.Tab("Setting"):
         settings_optionList_dropdown = gr.Dropdown(label="Options", choices=["Login"], value="Login")
@@ -288,7 +340,9 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         fn = lambda: gr.Textbox(value=""), outputs = record_billAmt).then(
         fn = list_denials, inputs = session_state, outputs = noteList)
     
-    report_filter_btn.click(fn = get_report, inputs = [report_filter, report_condition, report_value], outputs = report_list)
+    report_create_btn.click(
+        fn = gather_report_state, inputs = [report_filter, report_filter_condition, report_filter_value, report_sort, report_sort_condition], outputs = report_state).then(
+        fn = get_report, inputs = report_state, outputs = report_list)
     
     settings_optionList_dropdown.select(fn = settings_options, inputs = settings_optionList_dropdown, outputs = [settings_login_grp, settings_addNewPt_grp])
     settings_login_login_btn.click(
