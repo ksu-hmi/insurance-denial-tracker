@@ -12,11 +12,18 @@ Currently, the tracking of denial progress is manual and documented within patie
 
 The Insurance Denial Tracker Application aims to address these challenges by providing:
 
-* **Centralized Denials Database:** A dedicated database to log all denials after claim denial are received, eliminating reliance on paper or scattered EHR notes.
+* **Centralized Denials Database:** A dedicated database to log all denials after a claim denial are received, eliminating reliance on paper or scattered EHR notes.
 * **Progress Tracking:** The ability to capture denial details upon receipt, add appeals as notes or other progress, and track the progress of each case over time.
 * **Filter & Report:** Filtering options to easily identify outstanding denials based on various criteria, such as date of service, patient, or bill amount.
 * **User-Friendly Interface:** A modern and intuitive web interface accessible through any web browser.
 * **Local Deployment:** The application can be deployed directly on a local server for centralized and shared access to every computer in the local network.
+
+## Key Functionalities:
+
+* **Centralized Claims Management:** Seamlessly input and record received insurance claim denials, eliminating reliance on scattered document management and facilitating efficient data retrieval.
+* **Comprehensive Reporting:** Generate insightful reports with granular filtering and sorting options based on pre-defined criteria (date of service, bill amount, paid amount, denials status).
+* **User Roles:** While password encryption and cookie-based sessions are currently under development, the system already supports user roles (Guest, User, Admin ) for access management.
+* **Administrative Privileges:** Admin users hold the authority to create and manage additional user accounts.
 
 ## Technology Stack
 
