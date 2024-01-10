@@ -44,36 +44,18 @@ def authenticate(username, session_state):
         session_state['user'] = "Guest"
         return "Invalid username", session_state
 
-def get_patients(lastname, firstname, dob, session_state):
+def get_patients():
+    patients = db.patients.find()
 
-    if lastname != "" and firstname == "" and dob == "":
-        dat = {"last_name": {"$regex": lastname, "$options": "i"}}
-    elif lastname == "" and firstname != "" and dob == "":
-        dat = {"first_name": {"$regex": firstname, "$options": "i"}}
-    elif lastname == "" and firstname == "" and dob != "":
-        dat = {"dob": date_format(dob)}
-    elif lastname != "" and firstname != "" and dob == "":
-        dat = {"last_name": {"$regex": lastname, "$options": "i"}, "first_name": {"$regex": firstname, "$options": "i"}}
-    elif lastname != "" and firstname == "" and dob != "":
-        dat = {"last_name": {"$regex": lastname, "$options": "i"}, "dob": date_format(dob)}
-    elif lastname == "" and firstname != "" and dob != "":
-        dat = {"first_name": {"$regex": firstname, "$options": "i"}, "dob": date_format(dob)}
-    elif lastname != "" and firstname != "" and dob != "":
-        dat = {"last_name": {"$regex": lastname, "$options": "i"}, "first_name": {"$regex": firstname, "$options": "i"}, "dob": date_format(dob)}
-    else:
-        dat = {}
-    
-    patients = db.patients.find(dat)
-
-    session_state['patient_list'] = []
+    patient_list = []
 
     for patient in patients:
-        session_state['patient_list'].append((patient["last_name"] + ", " + patient["first_name"] + " (" + patient["dob"].strftime("%m/%d/%Y") + ")", patient["_id"]))
+        patient_list.append((patient["last_name"] + ", " + patient["first_name"] + " (" + patient["dob"].strftime("%m/%d/%Y") + ")", str(patient["_id"])))
     
     # sort by last name
-    session_state['patient_list'].sort(key=lambda x: x[0])
+    patient_list.sort(key=lambda x: x[0])
 
-    return session_state
+    return patient_list
     
 def select_patient(patient_id, session_state):
     session_state['patient_id'] = patient_id
@@ -268,14 +250,9 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     username_label = gr.Markdown("Logged in as: Guest")
     with gr.Tab("Record"):
         with gr.Row():
-            record_lastName = gr.Textbox(label="Last Name")
-            record_firstName = gr.Textbox(label="First Name")
-            record_dob = gr.Textbox(label="Date of Birth")
-            record_find_btn = gr.Button("Find")
-        with gr.Row():
-            record_patientSelected_dropdown = gr.Dropdown(label="Patient selected")
+            record_patientSelected_dropdown = gr.Dropdown(label="Patient selected", choices=get_patients())
             record_patientList = gr.Markdown()
-        with gr.Column(visible=False) as record_patient_grp:
+        with gr.Column() as record_patient_grp:
             with gr.Accordion(label= "Input new note", visible=False, open=False) as record_input_accordion:
                 with gr.Row():
                     record_dos = gr.Textbox(label="Date of Service")
@@ -325,13 +302,8 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
             setting_addNewPt_label = gr.Markdown(label="Output")
     
     # Event Handlers
-    record_find_btn.click(fn = get_patients, inputs = [record_lastName, record_firstName, record_dob, session_state], outputs = session_state).then(
-        fn = lambda: gr.Column(visible=False), outputs = record_patient_grp).then(
-        fn = lambda: gr.Dropdown(choices="", value=""), outputs = record_patientSelected_dropdown).then(
-        fn = lambda x: gr.Dropdown(choices=x['patient_list']), inputs = session_state, outputs = record_patientSelected_dropdown)
-        
-    record_patientSelected_dropdown.select(fn = select_patient, inputs = [record_patientSelected_dropdown, session_state], outputs = session_state).then(
-        fn = lambda x: gr.Column(visible=True) if x['patient_id'] != "" else gr.Column(visible=False), inputs = session_state, outputs = record_patient_grp).then(
+    record_patientSelected_dropdown.select(
+        fn = select_patient, inputs = [record_patientSelected_dropdown, session_state], outputs = session_state).then(
         fn = list_denials, inputs = session_state, outputs = noteList)
     record_status.change(fn = lambda x: gr.Textbox(visible=True) if x == "Paid" else gr.Textbox(visible=False), inputs = record_status, outputs = record_paidAmt)
     record_submit_btn.click(fn = set_denial, inputs = [record_dos, record_billAmt, record_status, record_paidAmt, record_note, session_state], outputs = record_inputNote_label).then(
