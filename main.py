@@ -250,8 +250,8 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     username_label = gr.Markdown("Logged in as: Guest")
     with gr.Tab("Record"):
         with gr.Row():
-            record_patientSelected_dropdown = gr.Dropdown(label="Patient selected", choices=get_patients())
-            record_patientList = gr.Markdown()
+            record_patientSelected_dropdown = gr.Dropdown(label="Patient List", choices=get_patients())
+            record_patientRefresh_btn = gr.Button("Refresh")
         with gr.Column() as record_patient_grp:
             with gr.Accordion(label= "Input new note", visible=False, open=False) as record_input_accordion:
                 with gr.Row():
@@ -305,6 +305,8 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     record_patientSelected_dropdown.select(
         fn = select_patient, inputs = [record_patientSelected_dropdown, session_state], outputs = session_state).then(
         fn = list_denials, inputs = session_state, outputs = noteList)
+    record_patientRefresh_btn.click(
+        fn = lambda: gr.Dropdown(choices=get_patients()), outputs = record_patientSelected_dropdown)
     record_status.change(fn = lambda x: gr.Textbox(visible=True) if x == "Paid" else gr.Textbox(visible=False), inputs = record_status, outputs = record_paidAmt)
     record_submit_btn.click(fn = set_denial, inputs = [record_dos, record_billAmt, record_status, record_paidAmt, record_note, session_state], outputs = record_inputNote_label).then(
         fn = lambda: gr.Textbox(value=""), outputs = record_billAmt).then(
