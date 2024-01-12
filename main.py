@@ -36,6 +36,7 @@ def date_format(dateString):
     raise ValueError('no valid date format found')
 
 def authenticate(username, session_state):
+    username = username.strip().lower()
     user = db.users.find_one({"username": username})
     if user:
         session_state['user'] = username
