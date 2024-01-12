@@ -255,27 +255,32 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     with gr.Tab("Record"):
         with gr.Row():
             record_patientSelected_dropdown = gr.Dropdown(label="Patient List", choices=get_patients(), scale=5)
-            record_patientAdd_btn = gr.Button("Add New Patient", visible=False)
             record_patientRefresh_btn = gr.Button("Refresh")
-        with gr.Row(visible=False) as record_addNewPt_row:            
-            record_addNewPt_lastName = gr.Textbox(label="Last Name")
-            record_addNewPt_firstName = gr.Textbox(label="First Name")
-            record_addNewPt_dob = gr.Textbox(label="Date of Birth")
-            record_addNewPt_addPatient_btn = gr.Button("Add Patient")
-            record_addNewPt_cancel_btn = gr.Button("Cancel")
+        with gr.Row(visible=False) as record_addNew_row:
+            record_noteAdd_btn = gr.Button("Add New Note")
+            record_patientAdd_btn = gr.Button("Add New Patient")
+        with gr.Column(visible=False) as record_addNewNote_col:
+            with gr.Tab("New Note"):
+                with gr.Row():
+                    record_addNewNote_dos = gr.Textbox(label="Date of Service")
+                    record_addNewNote_billAmt = gr.Textbox(label="Bill Amount")
+                    record_addNewNote_status = gr.Dropdown(label="Status", choices=["Denied", "Appealed", "Paid", "Write Off", "Other"], value="Denied")
+                    record_addNewNote_paidAmt = gr.Textbox(label="Paid Amount", visible=False)
+                record_addNewNote_note = gr.TextArea(label="Note")
+                with gr.Row():
+                    record_addNewNote_addNote_btn = gr.Button("Add Note")
+                    record_addNewNote_cancel_btn = gr.Button("Cancel")
+        with gr.Column(visible=False) as record_addNewPt_col:
+            with gr.Tab("New Patient"):
+                with gr.Row():     
+                    record_addNewPt_lastName = gr.Textbox(label="Last Name")
+                    record_addNewPt_firstName = gr.Textbox(label="First Name")
+                    record_addNewPt_dob = gr.Textbox(label="Date of Birth")
+                with gr.Row():
+                    record_addNewPt_addPatient_btn = gr.Button("Add Patient")
+                    record_addNewPt_cancel_btn = gr.Button("Cancel")
         with gr.Column() as record_patient_grp:
-            with gr.Accordion(label= "Input new note", visible=False, open=False) as record_input_accordion:
-                with gr.Row():
-                    record_dos = gr.Textbox(label="Date of Service")
-                    record_billAmt = gr.Textbox(label="Bill Amount")
-                    record_status = gr.Dropdown(label="Status", choices=["Denied", "Appealed", "Paid", "Write Off", "Other"], value="Denied")
-                    record_paidAmt = gr.Textbox(label="Paid Amount", visible=False)
-                record_note = gr.TextArea(label="Note")
-                record_submit_btn = gr.Button("Submit")
-                with gr.Row():
-                    record_inputNote_label = gr.Markdown()
-            with gr.Column():
-                noteList = gr.HTML()
+            noteList = gr.HTML()
     with gr.Tab("Report"):
         report_state = gr.State()
         with gr.Row():
@@ -306,36 +311,48 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
                 settings_manageUser_label = gr.Markdown()
     
     # Event Handlers
+    # Record Tab
     record_patientSelected_dropdown.select(
         fn = select_patient, inputs = [record_patientSelected_dropdown, session_state], outputs = session_state).then(
         fn = list_denials, inputs = session_state, outputs = noteList)    
-    record_patientAdd_btn.click(
-        fn = lambda: [gr.Textbox(value=""), gr.Textbox(value=""), gr.Textbox(value="")], outputs = [record_addNewPt_lastName, record_addNewPt_firstName, record_addNewPt_dob]).then(
-        fn = lambda: gr.Row(visible=True), outputs = record_addNewPt_row)
     record_patientRefresh_btn.click(
         fn = lambda: gr.Dropdown(choices=get_patients()), outputs = record_patientSelected_dropdown)
     
+    record_noteAdd_btn.click(
+        fn = lambda: [gr.Textbox(value=""), gr.Textbox(value=""), gr.Dropdown(value=None), gr.Textbox(value=""), gr.TextArea(value="")], outputs = [record_addNewNote_dos, record_addNewNote_billAmt, record_addNewNote_status, record_addNewNote_paidAmt, record_addNewNote_note]).then(
+        fn = lambda: gr.Column(visible=False), outputs = record_addNewPt_col).then(
+        fn = lambda: gr.Column(visible=True), outputs = record_addNewNote_col)
+    record_addNewNote_status.change(
+        fn = lambda x: gr.Textbox(visible=True) if x == "Paid" else gr.Textbox(value=0, visible=False), inputs = record_addNewNote_status, outputs = record_addNewNote_paidAmt)
+    record_addNewNote_addNote_btn.click(
+        fn = set_denial, inputs = [record_addNewNote_dos, record_addNewNote_billAmt, record_addNewNote_status, record_addNewNote_paidAmt, record_addNewNote_note, session_state]).then(
+        fn = lambda: gr.Textbox(value=""), outputs = record_addNewNote_billAmt).then(
+        fn = lambda: gr.Column(visible=False), outputs = record_addNewNote_col).then(
+        fn = list_denials, inputs = session_state, outputs = noteList)
+    record_addNewNote_cancel_btn.click(
+        fn = lambda: gr.Column(visible=False), outputs = record_addNewNote_col)
+    
+    record_patientAdd_btn.click(
+        fn = lambda: [gr.Textbox(value=""), gr.Textbox(value=""), gr.Textbox(value="")], outputs = [record_addNewPt_lastName, record_addNewPt_firstName, record_addNewPt_dob]).then(
+        fn = lambda: gr.Column(visible=False), outputs = record_addNewNote_col).then(
+        fn = lambda: gr.Column(visible=True), outputs = record_addNewPt_col)
     record_addNewPt_addPatient_btn.click(
         fn = add_patient, inputs = [record_addNewPt_lastName, record_addNewPt_firstName, record_addNewPt_dob]).success(
-        fn = lambda: gr.Row(visible=False), outputs = record_addNewPt_row).then(
+        fn = lambda: gr.Column(visible=False), outputs = record_addNewPt_col).then(
         fn = lambda: gr.Dropdown(choices=get_patients()), outputs = record_patientSelected_dropdown)
     record_addNewPt_cancel_btn.click(
-        fn = lambda: gr.Row(visible=False), outputs = record_addNewPt_row)
+        fn = lambda: gr.Column(visible=False), outputs = record_addNewPt_col)
     
-    record_status.change(fn = lambda x: gr.Textbox(visible=True) if x == "Paid" else gr.Textbox(visible=False), inputs = record_status, outputs = record_paidAmt)
-    record_submit_btn.click(fn = set_denial, inputs = [record_dos, record_billAmt, record_status, record_paidAmt, record_note, session_state], outputs = record_inputNote_label).then(
-        fn = lambda: gr.Textbox(value=""), outputs = record_billAmt).then(
-        fn = list_denials, inputs = session_state, outputs = noteList)
-    
+    # Report Tab
     report_create_btn.click(
         fn = gather_report_state, inputs = [report_filter, report_filter_condition, report_filter_value, report_sort, report_sort_condition], outputs = report_state).then(
         fn = get_report, inputs = report_state, outputs = report_list)
     
+    # Settings Tab
     settings_optionList_dropdown.select(fn = settings_options, inputs = settings_optionList_dropdown, outputs = [settings_login_grp])
     settings_login_login_btn.click(
         fn = authenticate, inputs = [settings_login_username, session_state], outputs = [settings_login_label, session_state]).then(
-        fn = lambda x: gr.Button(visible=True) if x['user'] != "Guest" else gr.Button(visible=False), inputs = session_state, outputs = record_patientAdd_btn).then(
-        fn = lambda x: gr.Accordion(visible=True) if x['user'] != "Guest" else gr.Accordion(visible=False), inputs = session_state, outputs = record_input_accordion).then(
+        fn = lambda x: gr.Row(visible=True) if x['user'] != "Guest" else gr.Row(visible=False), inputs = session_state, outputs = record_addNew_row).then(
         fn = lambda: gr.Dropdown(choices=["Login"]), outputs = settings_optionList_dropdown).then(
         fn = update_username, inputs = session_state, outputs = username_label)
     settings_manageUser_createUser_btn.click(fn = set_user, inputs = [settings_manageUser_username, settings_manageUser_password], outputs = settings_manageUser_label)
