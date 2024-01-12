@@ -205,9 +205,15 @@ def settings_options(selection):
         return [gr.Column(visible=False), gr.Column(visible=True)]
 
 def add_patient(ln, fn, dob):
-    ln = ln.upper()
-    fn = fn.upper()
-    dob = datetime.strptime(dob, "%m/%d/%Y")
+    ln = ln.strip().upper()
+    fn = fn.strip().upper()
+    dob = dob.strip()
+
+    # check if required fields are blank
+    if ln == "" or fn == "" or dob == "":
+        return "Last Name, First Name, and Date of Birth are required"
+
+    dob = date_format(dob)
     patient = {
         "last_name": ln,
         "first_name": fn,
@@ -216,12 +222,10 @@ def add_patient(ln, fn, dob):
 
     # check if patient already exists
     if db.patients.find_one(patient):
-        output = "Patient already exists"
+        return "Patient already exists"
     else:
         db.patients.insert_one(patient)
-        output = "Patient added"
-
-    return output
+        return "Patient added"
 
 def set_user(username, password = "", role = "user"):
     user = {
