@@ -57,6 +57,29 @@ def get_patients():
     patient_list.sort(key=lambda x: x[0])
 
     return patient_list
+
+def set_patient(ln, fn, dob):
+    ln = ln.strip().upper()
+    fn = fn.strip().upper()
+    dob = dob.strip()
+
+    # check if required fields are blank
+    if ln == "" or fn == "" or dob == "":
+        raise gr.Error("Last Name, First Name, and Date of Birth are required!")
+
+    dob = date_format(dob)
+    patient = {
+        "last_name": ln,
+        "first_name": fn,
+        "dob": dob
+    }
+
+    # check if patient already exists
+    if db.patients.find_one(patient):
+        raise gr.Error("Patient already exists!")
+    else:
+        db.patients.insert_one(patient)
+        gr.Info(ln + ", " + fn + " (" + dob.strftime("%m/%d/%Y") + ") added")
     
 def select_patient(patient_id, session_state):
     session_state['patient_id'] = patient_id
@@ -214,29 +237,6 @@ def settings_options(selection):
     elif selection == "Add New Patient":
         return [gr.Column(visible=False), gr.Column(visible=True)]
 
-def add_patient(ln, fn, dob):
-    ln = ln.strip().upper()
-    fn = fn.strip().upper()
-    dob = dob.strip()
-
-    # check if required fields are blank
-    if ln == "" or fn == "" or dob == "":
-        return "Last Name, First Name, and Date of Birth are required"
-
-    dob = date_format(dob)
-    patient = {
-        "last_name": ln,
-        "first_name": fn,
-        "dob": dob
-    }
-
-    # check if patient already exists
-    if db.patients.find_one(patient):
-        return "Patient already exists"
-    else:
-        db.patients.insert_one(patient)
-        return "Patient added"
-
 def set_user(username, password = "", role = "user"):
     user = {
         "username": username,
@@ -347,7 +347,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         fn = lambda: gr.Column(visible=False), outputs = record_addNewNote_col).then(
         fn = lambda: gr.Column(visible=True), outputs = record_addNewPt_col)
     record_addNewPt_addPatient_btn.click(
-        fn = add_patient, inputs = [record_addNewPt_lastName, record_addNewPt_firstName, record_addNewPt_dob]).success(
+        fn = set_patient, inputs = [record_addNewPt_lastName, record_addNewPt_firstName, record_addNewPt_dob]).success(
         fn = lambda: gr.Column(visible=False), outputs = record_addNewPt_col).then(
         fn = lambda: gr.Dropdown(choices=get_patients()), outputs = record_patientSelected_dropdown)
     record_addNewPt_cancel_btn.click(
