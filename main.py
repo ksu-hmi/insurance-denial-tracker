@@ -33,7 +33,7 @@ def date_format(dateString):
             return datetime.strptime(dateString, format)
         except ValueError:
             pass
-    raise ValueError('no valid date format found')
+    raise gr.Error('No valid date format found')
 
 def authenticate(username, session_state):
     username = username.strip().lower()
@@ -79,7 +79,9 @@ def list_denials(session_state):
       
 def set_denial(dos, bill_amt, status, paid_amt, note, session_state):
     if dos == "":
-        return "Date of Service cannot be blank"
+        raise gr.Error("Date of Service cannot be blank!")
+    
+    dos = dos.strip()
     
     user = session_state["user"]
 
@@ -94,6 +96,13 @@ def set_denial(dos, bill_amt, status, paid_amt, note, session_state):
             bill_amt = 0.00
     else:
         bill_amt = round(float(bill_amt),2)
+
+    # if status is blank, use existing value
+    if status == None:
+        if denial:
+            status = denial["status"]
+        else:
+            status = "Denied"
 
     # if paid_amt is blank, use existing value
     if paid_amt == "":
@@ -326,7 +335,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     record_addNewNote_status.change(
         fn = lambda x: gr.Textbox(visible=True) if x == "Paid" else gr.Textbox(value=0, visible=False), inputs = record_addNewNote_status, outputs = record_addNewNote_paidAmt)
     record_addNewNote_addNote_btn.click(
-        fn = set_denial, inputs = [record_addNewNote_dos, record_addNewNote_billAmt, record_addNewNote_status, record_addNewNote_paidAmt, record_addNewNote_note, session_state]).then(
+        fn = set_denial, inputs = [record_addNewNote_dos, record_addNewNote_billAmt, record_addNewNote_status, record_addNewNote_paidAmt, record_addNewNote_note, session_state]).success(
         fn = lambda: gr.Textbox(value=""), outputs = record_addNewNote_billAmt).then(
         fn = lambda: gr.Column(visible=False), outputs = record_addNewNote_col).then(
         fn = list_denials, inputs = session_state, outputs = noteList)
