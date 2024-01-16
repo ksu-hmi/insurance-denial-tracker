@@ -368,4 +368,5 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     settings_manageUser_createUser_btn.click(fn = set_user, inputs = [settings_manageUser_username, settings_manageUser_password], outputs = settings_manageUser_label)
 
 # Run Gradio server
-ui.launch(server_name='0.0.0.0', show_api=False)
+if __name__ == "__main__":
+    ui.launch(server_name='0.0.0.0', show_api=False)
