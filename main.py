@@ -338,10 +338,7 @@ def get_report(report_state):
     return table
 
 def settings_options(selection):
-    if selection == "Login":
-        return [gr.Column(visible=True), gr.Column(visible=False)]
-    elif selection == "Add New Patient":
-        return [gr.Column(visible=False), gr.Column(visible=True)]
+    pass
 
 def set_user(username, password = "", role = "user"):
     user = {
@@ -366,8 +363,14 @@ def update_username(session_state):
 # Gradio UI
 with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:   
     session_state = gr.State({'user': "Guest", 'patient_id': None, 'patient_list': []})
-
-    username_label = gr.Markdown("Logged in as: Guest")
+    
+    with gr.Column() as header_grp:
+        with gr.Row() as header_login_grp:
+            settings_login_username = gr.Textbox(label="Username")
+            settings_login_password = gr.Textbox(label="Password", interactive=False)
+            settings_login_login_btn = gr.Button("Login")
+            settings_login_label = gr.Markdown()
+        username_label = gr.Markdown("Logged in as: Guest")
     with gr.Tab("Record"):
         with gr.Row():
             record_patientSelected_dropdown = gr.Dropdown(label="Patient List", choices=get_patients(), scale=5)
@@ -423,14 +426,14 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         report_create_btn = gr.Button("Create Report")
         report_list = gr.HTML()
     with gr.Tab("Setting"):
-        settings_optionList_dropdown = gr.Dropdown(label="Options", choices=["Login"], value="Login")
-        with gr.Column(visible=True) as settings_login_grp:
+        settings_optionList_dropdown = gr.Dropdown(label="Options", visible=False, choices=["Login", "Manage Users"], value="Login")
+        with gr.Column(visible=False) as settings_login_grp:
             with gr.Row():
-                settings_login_username = gr.Textbox(label="Username")
-                settings_login_password = gr.Textbox(label="Password", interactive=False)
-                settings_login_login_btn = gr.Button("Login")
+                settings_login_username
+                settings_login_password
+                settings_login_login_btn
             with gr.Row():
-                settings_login_label = gr.Markdown()
+                settings_login_label
         with gr.Column(visible=False) as settings_manageUser_grp:
             with gr.Row():
                 settings_manageUser_username = gr.Textbox(label="Username")
@@ -516,7 +519,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     settings_login_login_btn.click(
         fn = authenticate, inputs = [settings_login_username, session_state], outputs = [settings_login_label, session_state]).then(
         fn = lambda x: gr.Row(visible=True) if x['user'] != "Guest" else gr.Row(visible=False), inputs = session_state, outputs = record_addNew_row).then(
-        fn = lambda: gr.Dropdown(choices=["Login"]), outputs = settings_optionList_dropdown).then(
+        fn = lambda: gr.Column(visible=False), outputs = header_login_grp).then(
         fn = update_username, inputs = session_state, outputs = username_label)
     settings_manageUser_createUser_btn.click(fn = set_user, inputs = [settings_manageUser_username, settings_manageUser_password], outputs = settings_manageUser_label)
 
