@@ -322,24 +322,34 @@ def get_report(report_state):
         patient = db.patients.find_one({"_id": denial["patient_id"]})
         note = db.notes.find_one({"_id": denial["notes"][-1]})
 
-        status = denial["status"] if denial["status"] != "Paid" else "Paid (" + str(denial["paid_amt"]) + ")"
-        dat.append({"Patient": patient["last_name"] + ", " + patient["first_name"] + " (" + patient["dob"].strftime("%m/%d/%Y") + ")",
-                        "Date of Service": denial["dos"].strftime("%m/%d/%y"),
-                        "Bill Amount": str(denial["bill_amt"]),                    
+        status = denial["status"] if denial["status"] != "Paid" else "Paid $" + "{:.2f}".format(denial["paid_amt"])
+        dat.append({"Patient": patient["last_name"] + ", " + patient["first_name"] + "\n (" + patient["dob"].strftime("%m/%d/%Y") + ")",
+                        "Date of Service": denial["dos"],
+                        "Bill Amount": denial["bill_amt"],                    
                         "Status": status,
-                        "Last Action": note["input_date"].strftime("%m/%d/%y"),
+                        "Last Action": note["input_date"],
                         "Note": note["input_user"] + ": " + note["note"]})
         
     df = pd.DataFrame(dat)
 
+    # return empty dataframe if no results
     if len(df) == 0:
+        gr.Info("No results found")
         return gr.DataFrame(visible=False)
     
     # sort by note input date
     df = df.sort_values(by=["Last Action"])
 
-    s = df.style.set_properties(**{'font-family': 'var(--font)', 'background-color': '#FFFFFF', 'border-top': '1px solid #C0C0C0', 'border-left': 'none', 'border-right': 'none', 'border-bottom': 'none'})
-    return gr.DataFrame(s, visible=True)
+    def format_date(val):
+        return val.strftime("%m/%d/%y")
+    
+    # format dataframe
+    formattedDF = df.style.format({"Date of Service": format_date}, subset=["Date of Service"]) \
+        .format({"Bill Amount": "${:,.2f}"}, subset=["Bill Amount"]) \
+        .format({"Last Action": format_date}, subset=["Last Action"]) \
+        .set_properties(**{'font-family': 'var(--font)', 'background-color': 'var(--body-background-fill)', 'border-top': '1px solid var(--border-color-primary)', 'border-left': 'none', 'border-right': 'none', 'border-bottom': 'none'})    
+    
+    return gr.DataFrame(formattedDF, visible=True)
 
 def settings_options(selection):
     pass
