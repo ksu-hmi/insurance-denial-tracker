@@ -255,17 +255,35 @@ def get_status_dropdown():
     status = db.denials.distinct("status")
     return status
 
-def gather_report_state(filter, filter_condition, value):
+def gather_report_state(filter, filter_condition, value_text, value_dropdown):
+    if filter == "Date of Service":
+        if value_text == "":
+            raise gr.Error("Date of Service cannot be blank!")
+        else:
+            value_text = date_format(value_text)
+
+    if filter == "Bill Amount":
+        if value_text == "":
+            raise gr.Error("Bill Amount cannot be blank!")
+        else:
+            value_text = round(float(value_text),2)
+
+    if filter == "Status":
+        if value_dropdown == None:
+            raise gr.Error("Status cannot be blank!")
+        else:
+            value_dropdown = value_dropdown
+
     report_state = {
         "filter": filter,
         "filter_condition": filter_condition,
-        "filter_value": value
+        "filter_value_text": value_text,
+        "filter_value_dropdown": value_dropdown
     }
     return report_state
 
 def get_report(report_state):
     
-    # build filter
     if report_state["filter"] == "Date of Service":
         filter = "dos"
     elif report_state["filter"] == "Bill Amount":
@@ -276,25 +294,27 @@ def get_report(report_state):
         filter = ""
 
     if report_state["filter_condition"] == "Equals":
-        filter_condition = "$eq"
+        condition = "$eq"
+    elif report_state["filter_condition"] == "Not Equals":
+        condition = "$ne"
     elif report_state["filter_condition"] == "Greater Than":
-        filter_condition = "$gt"
+        condition = "$gt"
     elif report_state["filter_condition"] == "Less Than":
-        filter_condition = "$lt"
+        condition = "$lt"
     else:
-        filter_condition = ""
+        condition = ""
 
-    if filter == "dos":
-        filter = {filter: date_format(report_state["filter_value"])}
-    elif filter == "bill_amt" or filter == "paid_amt":
-        filter = {filter: {filter_condition: float(report_state["filter_value"])}}
-    elif filter == "status":
-        filter = {filter: report_state["filter_value"]}
+    if report_state["filter_value_text"] != "":
+        value = report_state["filter_value_text"]
+    elif report_state["filter_value_dropdown"] != None:
+        value = report_state["filter_value_dropdown"]
     else:
-        filter = {}
+        value = ""
+    
+    query = {filter: {condition: value}}
 
     # get denials
-    denials = db.denials.find(filter)
+    denials = db.denials.find(query)
 
     dat = []
 
@@ -312,10 +332,14 @@ def get_report(report_state):
         
     df = pd.DataFrame(dat)
 
-    #  css = 'font-family: var(--font), border-top: 1px solid #C0C0C0, border-left: none, border-right: none, border-bottom: none'
+    if len(df) == 0:
+        return gr.DataFrame(visible=False)
+    
+    # sort by note input date
+    df = df.sort_values(by=["Last Action"])
 
     s = df.style.set_properties(**{'font-family': 'var(--font)', 'background-color': '#FFFFFF', 'border-top': '1px solid #C0C0C0', 'border-left': 'none', 'border-right': 'none', 'border-bottom': 'none'})
-    return gr.DataFrame(s, height=800, wrap=True, visible=True)
+    return gr.DataFrame(s, visible=True)
 
 def settings_options(selection):
     pass
@@ -397,11 +421,12 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     with gr.Tab("Report"):
         report_state = gr.State()
         with gr.Row():
-            report_filter = gr.Dropdown(label="Filter", choices=["Date of Service", "Bill Amount", "Status"], value="Status")
-            report_filter_condition = gr.Dropdown(label="Condition", choices=["Equals", "Greater Than", "Less Than"], value="Equals")
-            report_filter_value = gr.Textbox (label="Value", value="Denied")
+            report_filter_dropdown = gr.Dropdown(label="Filter", choices=["Date of Service", "Bill Amount", "Status"], value="Status")
+            report_filter_condition_dropdown = gr.Dropdown(label="Condition", choices=["Equals", "Not Equals", "Greater Than", "Less Than"], value="Not Equals")
+            report_filter_value_text = gr.Textbox(label="Value", visible=False)
+            report_filter_value_dropdown = gr.Dropdown(label="Value", choices=["Denied", "Appealed", "Paid", "Write Off", "Other"], value="Paid")
         report_create_btn = gr.Button("Create Report")
-        report_list = gr.DataFrame(visible=False)
+        report_list_dataframe = gr.DataFrame(height=700, wrap=True, visible=False)
     with gr.Tab("Setting"):
         settings_optionList_dropdown = gr.Dropdown(label="Options", visible=False, choices=["Login", "Manage Users"], value="Login")
         with gr.Column(visible=False) as settings_login_grp:
@@ -487,9 +512,12 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         fn = lambda: gr.Column(visible=False), outputs = record_addNewPt_col)
     
     # Report Tab
+    report_filter_dropdown.select(
+        fn = lambda x: gr.Textbox(visible=True) if x == "Date of Service" or x ==  "Bill Amount" else gr.Textbox(value="", visible=False), inputs = report_filter_dropdown, outputs = report_filter_value_text).then(
+        fn = lambda x: gr.Dropdown(visible=True) if x == "Status" else gr.Dropdown(value=None, visible=False), inputs = report_filter_dropdown, outputs = report_filter_value_dropdown)
     report_create_btn.click(
-        fn = gather_report_state, inputs = [report_filter, report_filter_condition, report_filter_value], outputs = report_state).then(
-        fn = get_report, inputs = report_state, outputs = report_list)
+        fn = gather_report_state, inputs = [report_filter_dropdown, report_filter_condition_dropdown, report_filter_value_text, report_filter_value_dropdown], outputs = report_state).success(
+        fn = get_report, inputs = report_state, outputs = report_list_dataframe, scroll_to_output=True)
     
     # Settings Tab
     settings_optionList_dropdown.select(fn = settings_options, inputs = settings_optionList_dropdown, outputs = [settings_login_grp])
