@@ -1,6 +1,7 @@
 import os
 import sys
 import gradio as gr
+import pandas as pd
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from datetime import datetime
@@ -254,18 +255,16 @@ def get_status_dropdown():
     status = db.denials.distinct("status")
     return status
 
-def gather_report_state(filter, filter_condition, value, sort, sort_condition):
+def gather_report_state(filter, filter_condition, value):
     report_state = {
         "filter": filter,
         "filter_condition": filter_condition,
-        "filter_value": value,
-        "sort": sort,
-        "sort_condition": sort_condition
+        "filter_value": value
     }
     return report_state
 
 def get_report(report_state):
-
+    
     # build filter
     if report_state["filter"] == "Date of Service":
         filter = "dos"
@@ -294,48 +293,29 @@ def get_report(report_state):
     else:
         filter = {}
 
-    # build sort
-    if report_state["sort"] == "Date of Service":
-        sort = "dos"
-    elif report_state["sort"] == "Bill Amount":
-        sort = "bill_amt"
-    elif report_state["sort"] == "Status":
-        sort = "status"
-    elif report_state["sort"] == "Last Note":
-        sort = "notes"
-    else:
-        sort = ""
+    # get denials
+    denials = db.denials.find(filter)
 
-    if report_state["sort_condition"] == "Ascending":
-        sort_condition = 1
-    elif report_state["sort_condition"] == "Descending":
-        sort_condition = -1
-    else:
-        sort_condition = ""
-
-    if sort != "" and sort_condition != "":
-        sort = [(sort, sort_condition)]
-    else:
-        sort = []
-
-    denials = db.denials.find(filter).sort(sort)      
-
-    # build table
-    table = []
-    table = "<table><tr><th>Patient</th><th>Date of Service</th><th>Bill Amount</th><th>Status</th><th>Last Note</th></tr>"
+    dat = []
 
     for denial in denials:
-        patient = db.patients.find_one({"_id": denial["patient_id"]})        
-        table += "<tr><td>" + patient["last_name"] + ", " + patient["first_name"] + " (" + patient["dob"].strftime("%m/%d/%Y") + ")</td>"
-        table += "<td>" + denial["dos"].strftime("%m/%d/%Y") + "</td>"
-        table += "<td>" + str(denial["bill_amt"]) + "</td>"
-        table += "<td>" + denial["status"] + "</td>"
+        patient = db.patients.find_one({"_id": denial["patient_id"]})
         note = db.notes.find_one({"_id": denial["notes"][-1]})
-        table += "<td>" + "(" + note["input_date"].strftime("%m/%d/%y") + ") <b>" + note["input_user"] + "</b>: " + note["note"] + "</td></tr>"
-    
-    table += "</table>"
 
-    return table
+        status = denial["status"] if denial["status"] != "Paid" else "Paid (" + str(denial["paid_amt"]) + ")"
+        dat.append({"Patient": patient["last_name"] + ", " + patient["first_name"] + " (" + patient["dob"].strftime("%m/%d/%Y") + ")",
+                        "Date of Service": denial["dos"].strftime("%m/%d/%y"),
+                        "Bill Amount": str(denial["bill_amt"]),                    
+                        "Status": status,
+                        "Last Action": note["input_date"].strftime("%m/%d/%y"),
+                        "Note": note["input_user"] + ": " + note["note"]})
+        
+    df = pd.DataFrame(dat)
+
+    #  css = 'font-family: var(--font), border-top: 1px solid #C0C0C0, border-left: none, border-right: none, border-bottom: none'
+
+    s = df.style.set_properties(**{'font-family': 'var(--font)', 'background-color': '#FFFFFF', 'border-top': '1px solid #C0C0C0', 'border-left': 'none', 'border-right': 'none', 'border-bottom': 'none'})
+    return gr.DataFrame(s, height=800, wrap=True, visible=True)
 
 def settings_options(selection):
     pass
@@ -420,11 +400,8 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
             report_filter = gr.Dropdown(label="Filter", choices=["Date of Service", "Bill Amount", "Status"], value="Status")
             report_filter_condition = gr.Dropdown(label="Condition", choices=["Equals", "Greater Than", "Less Than"], value="Equals")
             report_filter_value = gr.Textbox (label="Value", value="Denied")
-        with gr.Row():
-            report_sort = gr.Dropdown(label="Sort", choices=["Date of Service", "Bill Amount", "Status", "Last Note"], value="Bill Amount")
-            report_sort_condition = gr.Dropdown(label="Condition", choices=["Ascending", "Descending"], value="Descending")
         report_create_btn = gr.Button("Create Report")
-        report_list = gr.HTML()
+        report_list = gr.DataFrame(visible=False)
     with gr.Tab("Setting"):
         settings_optionList_dropdown = gr.Dropdown(label="Options", visible=False, choices=["Login", "Manage Users"], value="Login")
         with gr.Column(visible=False) as settings_login_grp:
@@ -511,7 +488,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     
     # Report Tab
     report_create_btn.click(
-        fn = gather_report_state, inputs = [report_filter, report_filter_condition, report_filter_value, report_sort, report_sort_condition], outputs = report_state).then(
+        fn = gather_report_state, inputs = [report_filter, report_filter_condition, report_filter_value], outputs = report_state).then(
         fn = get_report, inputs = report_state, outputs = report_list)
     
     # Settings Tab
