@@ -99,8 +99,61 @@ def list_denials(session_state):
     table += "</table>"
 
     return table
+
+def get_dos_dropdown(session_state):
+    if session_state['patient_id'] == None:
+        raise gr.Error("No patient selected!")
+
+    dosList = []
+    denials = db.denials.find({"patient_id": ObjectId(session_state['patient_id'])}).sort("dos", -1)
+
+    for denial in denials:
+        dosList.append(denial["dos"].strftime("%m/%d/%Y"))
+
+    return gr.Dropdown(choices=dosList)
+
+def get_denial(dos, session_state):
+    if session_state['patient_id'] == None:
+        raise gr.Error("No patient selected!")
+    
+    dos = date_format(dos)
+
+    denial = db.denials.find_one({"patient_id": ObjectId(session_state['patient_id']), "dos": dos})
+    session_state['denial_id'] = denial["_id"]
+    bill_amt = denial["bill_amt"]
+    paid_amt = denial["paid_amt"]
+    status = denial["status"]
+
+    noteList = []
+    for note in db.notes.find({"_id": {"$in": denial["notes"]}}).sort("input_date", -1):
+        noteList.append(("(" + note["input_date"].strftime("%m/%d/%y") + ") " + note["input_user"] + ": " + note["note"], str(note["_id"])))
+
+    return bill_amt, gr.Dropdown(choices=get_status_dropdown(), value=status), paid_amt, gr.Dropdown(choices=noteList), session_state
+
+def set_denial(denialId, patientId, dos, bill_amt, status, paid_amt, notesId):
+    # insert_one
+    if denialId == None:
+        denial = {
+            "patient_id": ObjectId(patientId),
+            "dos": date_format(dos),
+            "bill_amt": round(float(bill_amt),2),
+            "status": status,
+            "paid_amt": round(float(paid_amt),2),
+            "notes": [ObjectId(notesId)]
+        }
+        db.denials.insert_one(denial)
+
+    # update_one
+    else:
+        denial = {
+            "bill_amt": round(float(bill_amt),2),
+            "status": status,
+            "paid_amt": round(float(paid_amt),2)
+        }
+        db.denials.update_one({"_id": ObjectId(denialId)}, {"$set": denial})
+    
       
-def set_denial(dos, bill_amt, status, paid_amt, note, session_state):
+def add_denial(dos, bill_amt, status, paid_amt, note, session_state):
     if dos == "":
         raise gr.Error("Date of Service cannot be blank!")
     
@@ -147,6 +200,59 @@ def set_denial(dos, bill_amt, status, paid_amt, note, session_state):
                                                         upsert=True)
     
     return "Note added"
+
+def update_denial(bill_amt, status, paid_amt, session_state):
+    if session_state['patient_id'] == None:
+        raise gr.Error("No patient selected!")
+    
+    if session_state['denial_id'] == None:
+        raise gr.Error("No denial selected!")
+    
+    if bill_amt == "":
+        raise gr.Error("Bill Amount cannot be blank!")
+    
+    if status == None:
+        raise gr.Error("Status cannot be blank!")
+    
+    if paid_amt == "":
+        raise gr.Error("Paid Amount cannot be blank!")
+    
+    denial = {
+        "bill_amt": round(float(bill_amt),2),
+        "status": status,
+        "paid_amt": round(float(paid_amt),2)
+    }
+    db.denials.update_one({"_id": ObjectId(session_state['denial_id'])}, {"$set": denial})
+
+def get_note(note_id):
+    note = db.notes.find_one({"_id": ObjectId(note_id)})
+    return note["note"]
+
+def set_note(notes_id, input_date, input_user, note):
+    if notes_id == None:
+        note = {
+            "input_date": input_date,
+            "input_user": input_user,
+            "note": note
+        }
+        db.notes.insert_one(note)
+    else:
+        note = {
+            "input_date": input_date,
+            "input_user": input_user,
+            "note": note
+        }
+        db.notes.update_one({"_id": ObjectId(notes_id)}, {"$set": note})
+
+def update_note(note_id, note, session_state):
+
+    input_date = db.notes.find_one({"_id": ObjectId(note_id)})["input_date"]
+
+    set_note(note_id, input_date, session_state["user"], note)
+
+def get_status_dropdown():
+    status = db.denials.distinct("status")
+    return status
 
 def gather_report_state(filter, filter_condition, value, sort, sort_condition):
     report_state = {
@@ -268,6 +374,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
             record_patientRefresh_btn = gr.Button("Refresh")
         with gr.Row(visible=False) as record_addNew_row:
             record_noteAdd_btn = gr.Button("Add New Note")
+            record_editRecord_btn = gr.Button("Edit Record")
             record_patientAdd_btn = gr.Button("Add New Patient")
         with gr.Column(visible=False) as record_addNewNote_col:
             with gr.Tab("New Note"):
@@ -280,6 +387,19 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
                 with gr.Row():
                     record_addNewNote_addNote_btn = gr.Button("Add Note")
                     record_addNewNote_cancel_btn = gr.Button("Cancel")
+        with gr.Column(visible=False) as record_editRecord_col:
+            with gr.Tab("Edit Record"):
+                with gr.Row():
+                    record_editRecord_dos_dropdown = gr.Dropdown(label="Date of Service")
+                    record_editRecord_billAmt_text = gr.Textbox(label="Bill Amount")
+                    record_editRecord_status_dropdown = gr.Dropdown(label="Status")
+                    record_editRecord_paidAmt_text = gr.Textbox(label="Paid Amount", visible=False)
+                with gr.Column():
+                    record_editRecord_noteSelect_dropdown = gr.Dropdown(label="Select Note")
+                    record_editRecord_note = gr.TextArea(label="Note")
+                with gr.Row():
+                    record_editRecord_save_btn = gr.Button("Save")
+                    record_editRecord_cancel_btn = gr.Button("Cancel")
         with gr.Column(visible=False) as record_addNewPt_col:
             with gr.Tab("New Patient"):
                 with gr.Row():     
@@ -331,20 +451,53 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     record_noteAdd_btn.click(
         fn = lambda: [gr.Textbox(value=""), gr.Textbox(value=""), gr.Dropdown(value=None), gr.Textbox(value=""), gr.TextArea(value="")], outputs = [record_addNewNote_dos, record_addNewNote_billAmt, record_addNewNote_status, record_addNewNote_paidAmt, record_addNewNote_note]).then(
         fn = lambda: gr.Column(visible=False), outputs = record_addNewPt_col).then(
+        fn = lambda: gr.Column(visible=False), outputs = record_editRecord_col).then(
         fn = lambda: gr.Column(visible=True), outputs = record_addNewNote_col)
     record_addNewNote_status.change(
         fn = lambda x: gr.Textbox(visible=True) if x == "Paid" else gr.Textbox(value=0, visible=False), inputs = record_addNewNote_status, outputs = record_addNewNote_paidAmt)
     record_addNewNote_addNote_btn.click(
-        fn = set_denial, inputs = [record_addNewNote_dos, record_addNewNote_billAmt, record_addNewNote_status, record_addNewNote_paidAmt, record_addNewNote_note, session_state]).success(
+        fn = add_denial, inputs = [record_addNewNote_dos, record_addNewNote_billAmt, record_addNewNote_status, record_addNewNote_paidAmt, record_addNewNote_note, session_state]).success(
         fn = lambda: gr.Textbox(value=""), outputs = record_addNewNote_billAmt).then(
         fn = lambda: gr.Column(visible=False), outputs = record_addNewNote_col).then(
         fn = list_denials, inputs = session_state, outputs = noteList)
     record_addNewNote_cancel_btn.click(
         fn = lambda: gr.Column(visible=False), outputs = record_addNewNote_col)
     
+    record_editRecord_btn.click(
+        fn = lambda: gr.Textbox(value="", interactive=False), outputs = record_editRecord_billAmt_text).then(
+        fn = lambda: gr.Dropdown(choices=None, value=None, interactive=False), outputs = record_editRecord_status_dropdown).then(
+        fn = lambda: gr.Textbox(value="", interactive=False), outputs = record_editRecord_paidAmt_text).then(
+        fn = lambda: gr.Dropdown(choices=None, value=None, interactive=False), outputs = record_editRecord_noteSelect_dropdown).then(
+        fn = lambda: gr.TextArea(value="", interactive=False), outputs = record_editRecord_note).then(
+        fn = lambda: gr.Button(interactive=False), outputs = record_editRecord_save_btn).then(
+        fn = get_dos_dropdown, inputs = session_state, outputs = record_editRecord_dos_dropdown).success(
+        fn = lambda: gr.Column(visible=False), outputs = record_addNewNote_col).then(
+        fn = lambda: gr.Column(visible=False), outputs = record_addNewPt_col).then(
+        fn = lambda: gr.Column(visible=True), outputs = record_editRecord_col)
+    record_editRecord_dos_dropdown.select(
+        fn = get_denial, inputs = [record_editRecord_dos_dropdown, session_state], outputs = [record_editRecord_billAmt_text, record_editRecord_status_dropdown, record_editRecord_paidAmt_text, record_editRecord_noteSelect_dropdown, session_state]).success(
+        fn = lambda: gr.Textbox(interactive=True), outputs = record_editRecord_billAmt_text).then(
+        fn = lambda: gr.Dropdown(interactive=True), outputs = record_editRecord_status_dropdown).then(
+        fn = lambda: gr.Textbox(interactive=True), outputs = record_editRecord_paidAmt_text).then(
+        fn = lambda: gr.Dropdown(interactive=True), outputs = record_editRecord_noteSelect_dropdown).then(
+        fn = lambda: gr.TextArea(interactive=True), outputs = record_editRecord_note)
+    record_editRecord_status_dropdown.change(
+        fn = lambda x: gr.Textbox(visible=True) if x == "Paid" else gr.Textbox(value=0, visible=False), inputs = record_editRecord_status_dropdown, outputs = record_editRecord_paidAmt_text)
+    record_editRecord_noteSelect_dropdown.select(
+        fn = get_note, inputs = record_editRecord_noteSelect_dropdown, outputs = record_editRecord_note).then(
+        fn = lambda: gr.Button(interactive=True), outputs = record_editRecord_save_btn)
+    record_editRecord_save_btn.click(
+        fn = update_denial, inputs = [record_editRecord_billAmt_text, record_editRecord_status_dropdown, record_editRecord_paidAmt_text, session_state]).success(
+        fn = update_note, inputs = [record_editRecord_noteSelect_dropdown, record_editRecord_note, session_state]).success(
+        fn = lambda: gr.Column(visible=False), outputs = record_editRecord_col).then(
+        fn = list_denials, inputs = session_state, outputs = noteList)
+    record_editRecord_cancel_btn.click(
+        fn = lambda: gr.Column(visible=False), outputs = record_editRecord_col)
+
     record_patientAdd_btn.click(
         fn = lambda: [gr.Textbox(value=""), gr.Textbox(value=""), gr.Textbox(value="")], outputs = [record_addNewPt_lastName, record_addNewPt_firstName, record_addNewPt_dob]).then(
         fn = lambda: gr.Column(visible=False), outputs = record_addNewNote_col).then(
+        fn = lambda: gr.Column(visible=False), outputs = record_editRecord_col).then(
         fn = lambda: gr.Column(visible=True), outputs = record_addNewPt_col)
     record_addNewPt_addPatient_btn.click(
         fn = set_patient, inputs = [record_addNewPt_lastName, record_addNewPt_firstName, record_addNewPt_dob]).success(
