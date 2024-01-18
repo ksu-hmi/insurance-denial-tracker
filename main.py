@@ -266,7 +266,11 @@ def gather_report_state(filter, filter_condition, value_text, value_dropdown):
         if value_text == "":
             raise gr.Error("Bill Amount cannot be blank!")
         else:
-            value_text = round(float(value_text),2)
+            # check if value is a number
+            try:
+                value_text = round(float(value_text),2)
+            except ValueError:
+                raise gr.Error("Bill Amount must be a number!")            
 
     if filter == "Status":
         if value_dropdown == None:
