@@ -159,11 +159,13 @@ def add_denial(dos, bill_amt, status, paid_amt, note, session_state):
         raise gr.Error("Date of Service cannot be blank!")
     
     dos = dos.strip()
+
+    dos = date_format(dos)
     
     user = session_state["user"]
 
     #find denial
-    denial = db.denials.find_one({"patient_id": ObjectId(session_state['patient_id']), "dos": date_format(dos)})
+    denial = db.denials.find_one({"patient_id": ObjectId(session_state['patient_id']), "dos": dos})
 
     # if bill_amt is blank, use existing value
     if bill_amt == "":
@@ -172,7 +174,11 @@ def add_denial(dos, bill_amt, status, paid_amt, note, session_state):
         else:
             bill_amt = 0.00
     else:
-        bill_amt = round(float(bill_amt),2)
+        # check if value is a number
+        try:
+            bill_amt = round(float(bill_amt),2)
+        except ValueError:
+            raise gr.Error("Bill Amount must be a number!")
 
     # if status is blank, use existing value
     if status == None:
@@ -195,7 +201,7 @@ def add_denial(dos, bill_amt, status, paid_amt, note, session_state):
     insert_note = db.notes.insert_one(dat)
 
     # Update denial
-    updated_denial = db.denials.find_one_and_update({"patient_id": ObjectId(session_state['patient_id']), "dos": date_format(dos)}, 
+    updated_denial = db.denials.find_one_and_update({"patient_id": ObjectId(session_state['patient_id']), "dos": dos}, 
                                                         {"$set": {"bill_amt": bill_amt, "status": status, "paid_amt": paid_amt},
                                                             "$push": {"notes": insert_note.inserted_id}},
                                                         upsert=True)
