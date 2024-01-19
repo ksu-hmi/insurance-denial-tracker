@@ -459,12 +459,16 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     
     # Event Handlers
     # Header
+    settings_login_username.submit(
+        fn = authenticate, inputs = [settings_login_username, session_state], outputs = session_state).then(
+        fn = lambda x: gr.Row(visible=True) if x['user'] != "Guest" else gr.Row(visible=False), inputs = session_state, outputs = record_addNew_row).then(
+        fn = lambda: gr.Column(visible=False), outputs = header_login_grp).then(
+        fn = update_username, inputs = session_state, outputs = username_label)
     settings_login_login_btn.click(
         fn = authenticate, inputs = [settings_login_username, session_state], outputs = session_state).then(
         fn = lambda x: gr.Row(visible=True) if x['user'] != "Guest" else gr.Row(visible=False), inputs = session_state, outputs = record_addNew_row).then(
         fn = lambda: gr.Column(visible=False), outputs = header_login_grp).then(
         fn = update_username, inputs = session_state, outputs = username_label)
-    settings_manageUser_createUser_btn.click(fn = set_user, inputs = [settings_manageUser_username, settings_manageUser_password], outputs = settings_manageUser_label)          
 
     # Record Tab
     record_patientSelected_dropdown.select(
