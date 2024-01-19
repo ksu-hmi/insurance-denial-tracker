@@ -399,8 +399,8 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
             record_patientSelected_dropdown = gr.Dropdown(label="Patient List", choices=get_patients(), scale=5)
             record_patientRefresh_btn = gr.Button("Refresh")
         with gr.Row(visible=False) as record_addNew_row:
-            record_noteAdd_btn = gr.Button("Add New Note")
-            record_editRecord_btn = gr.Button("Edit Record")
+            record_noteAdd_btn = gr.Button("Add New Note", interactive=False)
+            record_editRecord_btn = gr.Button("Edit Record", interactive=False)
             record_patientAdd_btn = gr.Button("Add New Patient")
         with gr.Column(visible=False) as record_addNewNote_col:
             with gr.Tab("New Note"):
@@ -473,6 +473,8 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     # Record Tab
     record_patientSelected_dropdown.select(
         fn = select_patient, inputs = [record_patientSelected_dropdown, session_state], outputs = session_state).then(
+        fn = lambda: gr.Button(interactive=True), outputs = record_noteAdd_btn).then(
+        fn = lambda: gr.Button(interactive=True), outputs = record_editRecord_btn).then(
         fn = list_denials, inputs = session_state, outputs = noteList)    
     record_patientRefresh_btn.click(
         fn = lambda: gr.Dropdown(choices=get_patients()), outputs = record_patientSelected_dropdown)
