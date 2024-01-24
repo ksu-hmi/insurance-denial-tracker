@@ -28,132 +28,6 @@ if db.users.count_documents({}) == 0:
     db.users.insert_one({"username": username, "password": "", "role": "administrator"})
 
 # Functions
-def date_format(dateString):
-    for format in ('%m/%d/%y', '%m/%d/%Y', '%m%d%Y'):
-        try:
-            return datetime.strptime(dateString, format)
-        except ValueError:
-            pass
-    raise gr.Error('No valid date format found')
-
-def authenticate(username, session_state):
-    username = username.strip().lower()
-    user = db.users.find_one({"username": username})
-    if user:
-        session_state['user'] = username
-        return session_state
-    else:
-        session_state['user'] = "Guest"
-        return session_state
-
-def get_patients():
-    patients = db.patients.find()
-
-    patient_list = []
-
-    for patient in patients:
-        patient_list.append((patient["last_name"] + ", " + patient["first_name"] + " (" + patient["dob"].strftime("%m/%d/%Y") + ")", str(patient["_id"])))
-    
-    # sort by last name
-    patient_list.sort(key=lambda x: x[0])
-
-    return patient_list
-
-def set_patient(ln, fn, dob):
-    ln = ln.strip().upper()
-    fn = fn.strip().upper()
-    dob = dob.strip()
-
-    # check if required fields are blank
-    if ln == "" or fn == "" or dob == "":
-        raise gr.Error("Last Name, First Name, and Date of Birth are required!")
-
-    dob = date_format(dob)
-    patient = {
-        "last_name": ln,
-        "first_name": fn,
-        "dob": dob
-    }
-
-    # check if patient already exists
-    if db.patients.find_one(patient):
-        raise gr.Error("Patient already exists!")
-    else:
-        db.patients.insert_one(patient)
-        gr.Info(ln + ", " + fn + " (" + dob.strftime("%m/%d/%Y") + ") added")
-    
-def select_patient(patient_id, session_state):
-    session_state['patient_id'] = patient_id
-    return session_state
-    
-def list_denials(session_state):
-    denials = db.denials.find({"patient_id": ObjectId(session_state['patient_id'])}).sort("dos", -1)
-    table = "<table style='width: 100%'><tr><th style='width:10%'>Date of Service</th><th style='width:10%'>Bill Amount</th><th style='width:10%'>Status</th><th style='width:70%'>Notes</th></tr>"
-
-    for denial in denials:
-        table += "<tr valign='top'><td>" + denial["dos"].strftime("%m/%d/%Y") + "</td><td>" + str(denial["bill_amt"]) + "</td><td>" + denial["status"] + "</td>"
-        # list all notes in decending order
-        table += "<td><ul>"
-        for note in db.notes.find({"_id": {"$in": denial["notes"]}}).sort("input_date", -1):
-            table += "<li>" + "(" + note["input_date"].strftime("%m/%d/%y") + ") <b>" + note["input_user"] + "</b>: " + note["note"] + "</li>"
-        table += "</ul></td></tr>"
-    table += "</table>"
-
-    return table
-
-def get_dos_dropdown(session_state):
-    if session_state['patient_id'] == None:
-        raise gr.Error("No patient selected!")
-
-    dosList = []
-    denials = db.denials.find({"patient_id": ObjectId(session_state['patient_id'])}).sort("dos", -1)
-
-    for denial in denials:
-        dosList.append(denial["dos"].strftime("%m/%d/%Y"))
-
-    return gr.Dropdown(choices=dosList)
-
-def get_denial(dos, session_state):
-    if session_state['patient_id'] == None:
-        raise gr.Error("No patient selected!")
-    
-    dos = date_format(dos)
-
-    denial = db.denials.find_one({"patient_id": ObjectId(session_state['patient_id']), "dos": dos})
-    session_state['denial_id'] = denial["_id"]
-    bill_amt = denial["bill_amt"]
-    paid_amt = denial["paid_amt"]
-    status = denial["status"]
-
-    noteList = []
-    for note in db.notes.find({"_id": {"$in": denial["notes"]}}).sort("input_date", -1):
-        noteList.append(("(" + note["input_date"].strftime("%m/%d/%y") + ") " + note["input_user"] + ": " + note["note"], str(note["_id"])))
-
-    return bill_amt, gr.Dropdown(choices=get_status_dropdown(), value=status), paid_amt, gr.Dropdown(choices=noteList), session_state
-
-def set_denial(denialId, patientId, dos, bill_amt, status, paid_amt, notesId):
-    # insert_one
-    if denialId == None:
-        denial = {
-            "patient_id": ObjectId(patientId),
-            "dos": date_format(dos),
-            "bill_amt": round(float(bill_amt),2),
-            "status": status,
-            "paid_amt": round(float(paid_amt),2),
-            "notes": [ObjectId(notesId)]
-        }
-        db.denials.insert_one(denial)
-
-    # update_one
-    else:
-        denial = {
-            "bill_amt": round(float(bill_amt),2),
-            "status": status,
-            "paid_amt": round(float(paid_amt),2)
-        }
-        db.denials.update_one({"_id": ObjectId(denialId)}, {"$set": denial})
-    
-      
 def add_denial(dos, bill_amt, status, paid_amt, note, session_state):
     if dos == "":
         raise gr.Error("Date of Service cannot be blank!")
@@ -208,58 +82,23 @@ def add_denial(dos, bill_amt, status, paid_amt, note, session_state):
     
     return "Note added"
 
-def update_denial(bill_amt, status, paid_amt, session_state):
-    if session_state['patient_id'] == None:
-        raise gr.Error("No patient selected!")
-    
-    if session_state['denial_id'] == None:
-        raise gr.Error("No denial selected!")
-    
-    if bill_amt == "":
-        raise gr.Error("Bill Amount cannot be blank!")
-    
-    if status == None:
-        raise gr.Error("Status cannot be blank!")
-    
-    if paid_amt == "":
-        raise gr.Error("Paid Amount cannot be blank!")
-    
-    denial = {
-        "bill_amt": round(float(bill_amt),2),
-        "status": status,
-        "paid_amt": round(float(paid_amt),2)
-    }
-    db.denials.update_one({"_id": ObjectId(session_state['denial_id'])}, {"$set": denial})
-
-def get_note(note_id):
-    note = db.notes.find_one({"_id": ObjectId(note_id)})
-    return note["note"]
-
-def set_note(notes_id, input_date, input_user, note):
-    if notes_id == None:
-        note = {
-            "input_date": input_date,
-            "input_user": input_user,
-            "note": note
-        }
-        db.notes.insert_one(note)
+def authenticate(username, session_state):
+    username = username.strip().lower()
+    user = db.users.find_one({"username": username})
+    if user:
+        session_state['user'] = username
+        return session_state
     else:
-        note = {
-            "input_date": input_date,
-            "input_user": input_user,
-            "note": note
-        }
-        db.notes.update_one({"_id": ObjectId(notes_id)}, {"$set": note})
+        session_state['user'] = "Guest"
+        return session_state
 
-def update_note(note_id, note, session_state):
-
-    input_date = db.notes.find_one({"_id": ObjectId(note_id)})["input_date"]
-
-    set_note(note_id, input_date, session_state["user"], note)
-
-def get_status_dropdown():
-    status = db.denials.distinct("status")
-    return status
+def date_format(dateString):
+    for format in ('%m/%d/%y', '%m/%d/%Y', '%m%d%Y'):
+        try:
+            return datetime.strptime(dateString, format)
+        except ValueError:
+            pass
+    raise gr.Error('No valid date format found')
 
 def gather_report_state(filter, filter_condition, value_text, value_dropdown):
     if filter == "Date of Service":
@@ -291,6 +130,53 @@ def gather_report_state(filter, filter_condition, value_text, value_dropdown):
         "filter_value_dropdown": value_dropdown
     }
     return report_state
+
+def get_denial(dos, session_state):
+    if session_state['patient_id'] == None:
+        raise gr.Error("No patient selected!")
+    
+    dos = date_format(dos)
+
+    denial = db.denials.find_one({"patient_id": ObjectId(session_state['patient_id']), "dos": dos})
+    session_state['denial_id'] = denial["_id"]
+    bill_amt = denial["bill_amt"]
+    paid_amt = denial["paid_amt"]
+    status = denial["status"]
+
+    noteList = []
+    for note in db.notes.find({"_id": {"$in": denial["notes"]}}).sort("input_date", -1):
+        noteList.append(("(" + note["input_date"].strftime("%m/%d/%y") + ") " + note["input_user"] + ": " + note["note"], str(note["_id"])))
+
+    return bill_amt, gr.Dropdown(choices=get_status_dropdown(), value=status), paid_amt, gr.Dropdown(choices=noteList), session_state
+
+def get_dos_dropdown(session_state):
+    if session_state['patient_id'] == None:
+        raise gr.Error("No patient selected!")
+
+    dosList = []
+    denials = db.denials.find({"patient_id": ObjectId(session_state['patient_id'])}).sort("dos", -1)
+
+    for denial in denials:
+        dosList.append(denial["dos"].strftime("%m/%d/%Y"))
+
+    return gr.Dropdown(choices=dosList)
+
+def get_note(note_id):
+    note = db.notes.find_one({"_id": ObjectId(note_id)})
+    return note["note"]
+
+def get_patients():
+    patients = db.patients.find()
+
+    patient_list = []
+
+    for patient in patients:
+        patient_list.append((patient["last_name"] + ", " + patient["first_name"] + " (" + patient["dob"].strftime("%m/%d/%Y") + ")", str(patient["_id"])))
+    
+    # sort by last name
+    patient_list.sort(key=lambda x: x[0])
+
+    return patient_list
 
 def get_report(report_state):
     
@@ -361,8 +247,85 @@ def get_report(report_state):
     
     return gr.DataFrame(formattedDF, visible=True)
 
-def settings_options(selection):
-    pass
+def get_status_dropdown():
+    status = db.denials.distinct("status")
+    return status
+
+def list_denials(session_state):
+    denials = db.denials.find({"patient_id": ObjectId(session_state['patient_id'])}).sort("dos", -1)
+    table = "<table style='width: 100%'><tr><th style='width:10%'>Date of Service</th><th style='width:10%'>Bill Amount</th><th style='width:10%'>Status</th><th style='width:70%'>Notes</th></tr>"
+
+    for denial in denials:
+        table += "<tr valign='top'><td>" + denial["dos"].strftime("%m/%d/%Y") + "</td><td>" + str(denial["bill_amt"]) + "</td><td>" + denial["status"] + "</td>"
+        # list all notes in decending order
+        table += "<td><ul>"
+        for note in db.notes.find({"_id": {"$in": denial["notes"]}}).sort("input_date", -1):
+            table += "<li>" + "(" + note["input_date"].strftime("%m/%d/%y") + ") <b>" + note["input_user"] + "</b>: " + note["note"] + "</li>"
+        table += "</ul></td></tr>"
+    table += "</table>"
+
+    return table
+
+def set_denial(denialId, patientId, dos, bill_amt, status, paid_amt, notesId):
+    # insert_one
+    if denialId == None:
+        denial = {
+            "patient_id": ObjectId(patientId),
+            "dos": date_format(dos),
+            "bill_amt": round(float(bill_amt),2),
+            "status": status,
+            "paid_amt": round(float(paid_amt),2),
+            "notes": [ObjectId(notesId)]
+        }
+        db.denials.insert_one(denial)
+
+    # update_one
+    else:
+        denial = {
+            "bill_amt": round(float(bill_amt),2),
+            "status": status,
+            "paid_amt": round(float(paid_amt),2)
+        }
+        db.denials.update_one({"_id": ObjectId(denialId)}, {"$set": denial})
+
+def set_note(notes_id, input_date, input_user, note):
+    if notes_id == None:
+        note = {
+            "input_date": input_date,
+            "input_user": input_user,
+            "note": note
+        }
+        db.notes.insert_one(note)
+    else:
+        note = {
+            "input_date": input_date,
+            "input_user": input_user,
+            "note": note
+        }
+        db.notes.update_one({"_id": ObjectId(notes_id)}, {"$set": note})
+
+def set_patient(ln, fn, dob):
+    ln = ln.strip().upper()
+    fn = fn.strip().upper()
+    dob = dob.strip()
+
+    # check if required fields are blank
+    if ln == "" or fn == "" or dob == "":
+        raise gr.Error("Last Name, First Name, and Date of Birth are required!")
+
+    dob = date_format(dob)
+    patient = {
+        "last_name": ln,
+        "first_name": fn,
+        "dob": dob
+    }
+
+    # check if patient already exists
+    if db.patients.find_one(patient):
+        raise gr.Error("Patient already exists!")
+    else:
+        db.patients.insert_one(patient)
+        gr.Info(ln + ", " + fn + " (" + dob.strftime("%m/%d/%Y") + ") added")
 
 def set_user(username, password = "", role = "user"):
     user = {
@@ -379,6 +342,42 @@ def set_user(username, password = "", role = "user"):
         output = "User added"
 
     return output
+
+def select_patient(patient_id, session_state):
+    session_state['patient_id'] = patient_id
+    return session_state
+  
+def settings_options(selection):
+    pass
+
+def update_denial(bill_amt, status, paid_amt, session_state):
+    if session_state['patient_id'] == None:
+        raise gr.Error("No patient selected!")
+    
+    if session_state['denial_id'] == None:
+        raise gr.Error("No denial selected!")
+    
+    if bill_amt == "":
+        raise gr.Error("Bill Amount cannot be blank!")
+    
+    if status == None:
+        raise gr.Error("Status cannot be blank!")
+    
+    if paid_amt == "":
+        raise gr.Error("Paid Amount cannot be blank!")
+    
+    denial = {
+        "bill_amt": round(float(bill_amt),2),
+        "status": status,
+        "paid_amt": round(float(paid_amt),2)
+    }
+    db.denials.update_one({"_id": ObjectId(session_state['denial_id'])}, {"$set": denial})
+
+def update_note(note_id, note, session_state):
+
+    input_date = db.notes.find_one({"_id": ObjectId(note_id)})["input_date"]
+
+    set_note(note_id, input_date, session_state["user"], note)
 
 def update_username(session_state):
     name = session_state['user']
