@@ -165,6 +165,16 @@ def get_note(note_id):
     note = db.notes.find_one({"_id": ObjectId(note_id)})
     return note["note"]
 
+def get_patient_note(session_state):
+    if session_state['patient_id'] == None:
+        raise gr.Error("No patient selected!")
+
+    patient = db.patients.find_one({"_id": ObjectId(session_state['patient_id'])})
+    if "note" not in patient:
+        return ""
+    else:
+        return patient["note"]
+
 def get_patients():
     patients = db.patients.find()
 
@@ -328,6 +338,12 @@ def set_patient(ln, fn, dob):
         db.patients.insert_one(patient)
         gr.Info(ln + ", " + fn + " (" + dob.strftime("%m/%d/%Y") + ") added")
 
+def set_patient_note(note, session_state):
+    if session_state['patient_id'] == None:
+        raise gr.Error("No patient selected!")
+    
+    db.patients.update_one({"_id": ObjectId(session_state['patient_id'])}, {"$set": {"note": note}})
+
 def set_user(username, password = "", role = "user"):
     user = {
         "username": username,
@@ -401,6 +417,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         with gr.Row(visible=False) as record_addNew_row:
             record_noteAdd_btn = gr.Button("Add New Note", interactive=False)
             record_editRecord_btn = gr.Button("Edit Record", interactive=False)
+            record_editPatientNote_btn = gr.Button("Edit Patient Note", interactive=False)
             record_patientAdd_btn = gr.Button("Add New Patient")
         with gr.Column(visible=False) as record_addNewNote_col:
             with gr.Tab("New Note"):
@@ -435,7 +452,9 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
                 with gr.Row():
                     record_addNewPt_addPatient_btn = gr.Button("Add Patient")
                     record_addNewPt_cancel_btn = gr.Button("Cancel")
-        with gr.Column() as record_patient_grp:
+        with gr.Column(visible=False) as record_patient_grp:
+            record_patientNote_txt = gr.Textbox(label="Patient Note", interactive=False, value="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam euismod, nisl eget aliquam ultricies, nunc nisl aliquet nunc, quis aliqua tortor magna euismod qu amet.")
+            record_patientNote_save_btn = gr.Button("Save Patient Note", visible=False)
             noteList = gr.HTML()
     with gr.Tab("Report"):
         report_state = gr.State()
@@ -475,7 +494,10 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         fn = select_patient, inputs = [record_patientSelected_dropdown, session_state], outputs = session_state).then(
         fn = lambda: gr.Button(interactive=True), outputs = record_noteAdd_btn).then(
         fn = lambda: gr.Button(interactive=True), outputs = record_editRecord_btn).then(
-        fn = list_denials, inputs = session_state, outputs = noteList)    
+        fn = lambda: gr.Button(interactive=True), outputs = record_editPatientNote_btn).then(
+        fn = get_patient_note, inputs = session_state, outputs = record_patientNote_txt).then(
+        fn = list_denials, inputs = session_state, outputs = noteList).then(
+        fn = lambda: gr.Column(visible=True), outputs = record_patient_grp)
     record_patientRefresh_btn.click(
         fn = lambda: gr.Dropdown(choices=get_patients()), outputs = record_patientSelected_dropdown)
     
@@ -524,6 +546,15 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         fn = list_denials, inputs = session_state, outputs = noteList)
     record_editRecord_cancel_btn.click(
         fn = lambda: gr.Column(visible=False), outputs = record_editRecord_col)
+
+    record_editPatientNote_btn.click(
+        fn = lambda: gr.Textbox(interactive=True), outputs = record_patientNote_txt).then(
+        fn = lambda: gr.Button(visible=True), outputs = record_patientNote_save_btn)
+    record_patientNote_save_btn.click(
+        fn = set_patient_note, inputs = [record_patientNote_txt, session_state]).success(
+        fn = lambda: gr.Textbox(interactive=False), outputs = record_patientNote_txt).then(
+        fn = lambda: gr.Button(visible=False), outputs = record_patientNote_save_btn).then(
+        fn = get_patient_note, inputs = session_state, outputs = record_patientNote_txt)
 
     record_patientAdd_btn.click(
         fn = lambda: [gr.Textbox(value=""), gr.Textbox(value=""), gr.Textbox(value="")], outputs = [record_addNewPt_lastName, record_addNewPt_firstName, record_addNewPt_dob]).then(
