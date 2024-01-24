@@ -409,7 +409,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
                     record_addNewNote_billAmt = gr.Textbox(label="Bill Amount")
                     record_addNewNote_status = gr.Dropdown(label="Status", choices=["Denied", "Appealed", "Paid", "Write Off", "Other"], value="Denied")
                     record_addNewNote_paidAmt = gr.Textbox(label="Paid Amount", visible=False)
-                record_addNewNote_note = gr.TextArea(label="Note")
+                record_addNewNote_note = gr.Textbox(label="Note", lines=7, show_copy_button=True)
                 with gr.Row():
                     record_addNewNote_addNote_btn = gr.Button("Add Note")
                     record_addNewNote_cancel_btn = gr.Button("Cancel")
@@ -422,7 +422,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
                     record_editRecord_paidAmt_text = gr.Textbox(label="Paid Amount", visible=False)
                 with gr.Column():
                     record_editRecord_noteSelect_dropdown = gr.Dropdown(label="Select Note")
-                    record_editRecord_note = gr.TextArea(label="Note")
+                    record_editRecord_note = gr.Textbox(label="Note", lines=7, show_copy_button=True)
                 with gr.Row():
                     record_editRecord_save_btn = gr.Button("Save")
                     record_editRecord_cancel_btn = gr.Button("Cancel")
@@ -480,7 +480,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         fn = lambda: gr.Dropdown(choices=get_patients()), outputs = record_patientSelected_dropdown)
     
     record_noteAdd_btn.click(
-        fn = lambda: [gr.Textbox(value=""), gr.Textbox(value=""), gr.Dropdown(value=None), gr.Textbox(value=""), gr.TextArea(value="")], outputs = [record_addNewNote_dos, record_addNewNote_billAmt, record_addNewNote_status, record_addNewNote_paidAmt, record_addNewNote_note]).then(
+        fn = lambda: [gr.Textbox(value=""), gr.Textbox(value=""), gr.Dropdown(value=None), gr.Textbox(value=""), gr.Textbox(value="")], outputs = [record_addNewNote_dos, record_addNewNote_billAmt, record_addNewNote_status, record_addNewNote_paidAmt, record_addNewNote_note]).then(
         fn = lambda: gr.Column(visible=False), outputs = record_addNewPt_col).then(
         fn = lambda: gr.Column(visible=False), outputs = record_editRecord_col).then(
         fn = lambda: gr.Column(visible=True), outputs = record_addNewNote_col)
@@ -499,7 +499,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         fn = lambda: gr.Dropdown(choices=None, value=None, interactive=False), outputs = record_editRecord_status_dropdown).then(
         fn = lambda: gr.Textbox(value="", interactive=False), outputs = record_editRecord_paidAmt_text).then(
         fn = lambda: gr.Dropdown(choices=None, value=None, interactive=False), outputs = record_editRecord_noteSelect_dropdown).then(
-        fn = lambda: gr.TextArea(value="", interactive=False), outputs = record_editRecord_note).then(
+        fn = lambda: gr.Textbox(value="", interactive=False), outputs = record_editRecord_note).then(
         fn = lambda: gr.Button(interactive=False), outputs = record_editRecord_save_btn).then(
         fn = get_dos_dropdown, inputs = session_state, outputs = record_editRecord_dos_dropdown).success(
         fn = lambda: gr.Column(visible=False), outputs = record_addNewNote_col).then(
@@ -511,7 +511,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         fn = lambda: gr.Dropdown(interactive=True), outputs = record_editRecord_status_dropdown).then(
         fn = lambda: gr.Textbox(interactive=True), outputs = record_editRecord_paidAmt_text).then(
         fn = lambda: gr.Dropdown(interactive=True), outputs = record_editRecord_noteSelect_dropdown).then(
-        fn = lambda: gr.TextArea(interactive=True), outputs = record_editRecord_note)
+        fn = lambda: gr.Textbox(interactive=True), outputs = record_editRecord_note)
     record_editRecord_status_dropdown.change(
         fn = lambda x: gr.Textbox(visible=True) if x == "Paid" else gr.Textbox(value=0, visible=False), inputs = record_editRecord_status_dropdown, outputs = record_editRecord_paidAmt_text)
     record_editRecord_noteSelect_dropdown.select(
