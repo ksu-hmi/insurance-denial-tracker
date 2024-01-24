@@ -256,7 +256,8 @@ def list_denials(session_state):
     table = "<table style='width: 100%'><tr><th style='width:10%'>Date of Service</th><th style='width:10%'>Bill Amount</th><th style='width:10%'>Status</th><th style='width:70%'>Notes</th></tr>"
 
     for denial in denials:
-        table += "<tr valign='top'><td>" + denial["dos"].strftime("%m/%d/%Y") + "</td><td>" + str(denial["bill_amt"]) + "</td><td>" + denial["status"] + "</td>"
+        status = denial["status"] if denial["status"] != "Paid" else "Paid $" + "{:.2f}".format(denial["paid_amt"])
+        table += "<tr valign='top'><td>" + denial["dos"].strftime("%m/%d/%Y") + "</td><td>" + str(denial["bill_amt"]) + "</td><td>" + status + "</td>"
         # list all notes in decending order
         table += "<td><ul>"
         for note in db.notes.find({"_id": {"$in": denial["notes"]}}).sort("input_date", -1):
