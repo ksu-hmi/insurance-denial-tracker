@@ -1,0 +1,11 @@
+services:
+  server:
+    build:
+      context: .
+    ports:
+      - 7860:7860
+  db:
+    image: "mongo:7.0-jammy"
+    restart: always
+    # ports:
+    #   - 27017:27017

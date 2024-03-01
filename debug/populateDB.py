@@ -1,4 +1,3 @@
-import os
 import random
 import sys
 from pymongo import MongoClient
@@ -6,13 +5,9 @@ from bson.objectid import ObjectId
 from datetime import datetime
 from faker import Faker
 
-# Set up environment variables
-if "MONGODB_PATH" not in os.environ:
-    os.environ["MONGODB_PATH"] = "mongodb://127.0.0.1:27017"
-
 # Connect to MongoDB
 print("Connecting to the database...")
-client = MongoClient(os.environ["MONGODB_PATH"])
+client = MongoClient("db:27017")
 try:
     client.admin.command('ismaster')
     print("Database connection successful")
