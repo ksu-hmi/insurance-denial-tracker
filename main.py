@@ -1,4 +1,3 @@
-import os
 import sys
 import gradio as gr
 import pandas as pd
@@ -6,13 +5,9 @@ from pymongo import MongoClient
 from bson.objectid import ObjectId
 from datetime import datetime
 
-# Set up environment variables
-if "MONGODB_PATH" not in os.environ:
-    os.environ["MONGODB_PATH"] = "mongodb://127.0.0.1:27017"
-
 # Connect to MongoDB
 print("Connecting to the database...")
-client = MongoClient(os.environ["MONGODB_PATH"])
+client = MongoClient("db:27017")
 try:
     client.admin.command('ismaster')
     print("Database connection successful")
@@ -23,9 +18,8 @@ db = client["denials_tracker_db"]
 
 # check if any users exist
 if db.users.count_documents({}) == 0:
-    print("No users found. Create new admin account:")
-    username = input("Username: ")
-    db.users.insert_one({"username": username, "password": "", "role": "administrator"})
+    print("No users found. Created new admin account.")
+    db.users.insert_one({"username": "admin", "password": "admin", "role": "administrator"})
 
 # Functions
 def add_denial(dos, bill_amt, status, paid_amt, note, session_state):
