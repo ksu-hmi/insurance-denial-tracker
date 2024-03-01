@@ -30,14 +30,55 @@ The Insurance Denial Tracker Application aims to address these challenges by pro
 * **Front-End:** Gradio
 * **Back-End:** Python
 * **Database:** MongoDB
+* **Deployment:** Docker
 
-## Getting Started
+## Installation Guide
 
-1. **Clone the project repository:** Use the command `git clone https://github.com/kensantanu/Denials-Tracker`.
-2. **Install Dependencies:** Refer to the `requirements.txt` file for Python dependencies and install them using the command `pip install -r requirements.txt`.
-3. **Configure Database:** Modify the MONGODB_PATH environment variable in run.bat or run.sh as per your setup.
-4. **Start the Web Server:** Launch the application using run.bat or run.sh, depending on your server operating system.
-5. **Access the UI:** Open a web browser and navigate to http://server-ip-address:port (e.g., http://127.0.0.1:7860).
+**Prerequisites:**
+
+* **Git:** [https://git-scm.com/downloads](https://git-scm.com/downloads)
+* **Docker:** [https://docs.docker.com/get-docker/](https://docs.docker.com/get-docker/)
+
+**Installation:**
+
+1. **Clone this repository:**
+
+   ```
+   git clone https://github.com/kensantanu/denials-tracker
+   ```
+
+2. **Navigate to the project directory:**
+
+   ```
+   cd denials-tracker
+   ```
+
+3. **Build and run the server using Docker Compose:**
+
+   ```
+   docker compose up -d
+   ```
+
+**Accessing the Web App:**
+
+* Once the app is running, Open a web browser and navigate to http://localhost:7860/
+* The default username is `admin`.
+
+**Uninstallation:**
+
+1. **Navigate to the project directory and stop the running containers:**
+
+   ```
+   docker compose down
+   ```
+
+2. **(Optional) Delete the repository:**
+
+   Safely delete the local repository directory after stopping the containers.
+
+**Having trouble?**
+
+If you encounter any issues during installation, feel free to reach out for assistance!
 
 ## Contributing
 
