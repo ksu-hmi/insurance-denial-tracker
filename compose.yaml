@@ -7,5 +7,5 @@ services:
   db:
     image: "mongo:7.0-jammy"
     restart: always
-    # ports:
-    #   - 27017:27017
+    ports:
+      - ${DB_PORT:-}:27017
