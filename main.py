@@ -396,7 +396,7 @@ def update_username(session_state):
 
 # Gradio UI
 with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:   
-    session_state = gr.State({'user': "Guest", 'patient_id': None, 'patient_list': []})
+    session_state = gr.State({'user': "Guest", 'patient_id': None})
     
     with gr.Column() as header_grp:
         with gr.Row() as header_login_grp:
@@ -406,8 +406,8 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         username_label = gr.Markdown("Logged in as: Guest")
     with gr.Tab("Record"):
         with gr.Row():
-            record_patientSelected_dropdown = gr.Dropdown(label="Patient List", choices=get_patients(), scale=5)
-            record_patientRefresh_btn = gr.Button("Refresh")
+            record_patientSelected_dropdown = gr.Dropdown(label="Patient List", scale=5)
+            record_patientClear_btn = gr.Button("Clear")
         with gr.Row(visible=False) as record_addNew_row:
             record_noteAdd_btn = gr.Button("Add New Note", interactive=False)
             record_editRecord_btn = gr.Button("Edit Record", interactive=False)
@@ -492,8 +492,8 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         fn = get_patient_note, inputs = session_state, outputs = record_patientNote_txt).then(
         fn = list_denials, inputs = session_state, outputs = noteList).then(
         fn = lambda: gr.Column(visible=True), outputs = record_patient_grp)
-    record_patientRefresh_btn.click(
-        fn = lambda: gr.Dropdown(choices=get_patients()), outputs = record_patientSelected_dropdown)
+    record_patientClear_btn.click(
+        fn = lambda: gr.Dropdown(value=""), outputs = record_patientSelected_dropdown)
     
     record_noteAdd_btn.click(
         fn = lambda: [gr.Textbox(value=""), gr.Textbox(value=""), gr.Dropdown(value=None), gr.Textbox(value=""), gr.Textbox(value="")], outputs = [record_addNewNote_dos, record_addNewNote_billAmt, record_addNewNote_status, record_addNewNote_paidAmt, record_addNewNote_note]).then(
@@ -572,6 +572,9 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
     
     # Settings Tab
     settings_optionList_dropdown.select(fn = settings_options, inputs = settings_optionList_dropdown)
+
+    # Load event
+    ui.load(fn = lambda: gr.Dropdown(choices=get_patients()), outputs = record_patientSelected_dropdown)
 
 # Run Gradio server
 if __name__ == "__main__":
