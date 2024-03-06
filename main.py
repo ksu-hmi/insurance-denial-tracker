@@ -493,7 +493,11 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         fn = list_denials, inputs = session_state, outputs = noteList).then(
         fn = lambda: gr.Column(visible=True), outputs = record_patient_grp)
     record_patientClear_btn.click(
-        fn = lambda: gr.Dropdown(value=""), outputs = record_patientSelected_dropdown)
+        fn = lambda: gr.Dropdown(value=""), outputs = record_patientSelected_dropdown).then(
+        fn = lambda: gr.Button(interactive=False), outputs = record_noteAdd_btn).then(
+        fn = lambda: gr.Button(interactive=False), outputs = record_editRecord_btn).then(
+        fn = lambda: gr.Button(interactive=False), outputs = record_editPatientNote_btn).then(
+        fn = lambda: gr.Column(visible=False), outputs = record_patient_grp)
     
     record_noteAdd_btn.click(
         fn = lambda: [gr.Textbox(value=""), gr.Textbox(value=""), gr.Dropdown(value=None), gr.Textbox(value=""), gr.Textbox(value="")], outputs = [record_addNewNote_dos, record_addNewNote_billAmt, record_addNewNote_status, record_addNewNote_paidAmt, record_addNewNote_note]).then(
