@@ -1,7 +1,7 @@
 services:
   server:
-    build:
-      context: .
+    build: .
+    pull_policy: build
     ports:
       - 7860:7860
   db:
