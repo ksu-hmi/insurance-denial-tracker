@@ -2,8 +2,9 @@ services:
   server:
     build: .
     pull_policy: build
+    restart: always
     ports:
-      - 7860:7860
+      - ${SERVER_PORT:-7860}:7860
   db:
     image: "mongo:7.0-jammy"
     restart: always
