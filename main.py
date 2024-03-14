@@ -447,7 +447,7 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
                     record_addNewPt_addPatient_btn = gr.Button("Add Patient")
                     record_addNewPt_cancel_btn = gr.Button("Cancel")
         with gr.Column(visible=False) as record_patient_grp:
-            record_patientNote_txt = gr.Textbox(label="Patient Note", interactive=False, value="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam euismod, nisl eget aliquam ultricies, nunc nisl aliquet nunc, quis aliqua tortor magna euismod qu amet.")
+            record_patientNote_txt = gr.Textbox(label="Patient Note", interactive=False, lines=5)
             record_patientNote_save_btn = gr.Button("Save Patient Note", visible=False)
             noteList = gr.HTML()
     with gr.Tab("Report"):
