@@ -497,6 +497,10 @@ with gr.Blocks(title="Denials Tracker", analytics_enabled=False) as ui:
         fn = lambda: gr.Button(interactive=False), outputs = record_noteAdd_btn).then(
         fn = lambda: gr.Button(interactive=False), outputs = record_editRecord_btn).then(
         fn = lambda: gr.Button(interactive=False), outputs = record_editPatientNote_btn).then(
+        fn = lambda: gr.Column(visible=False), outputs = record_addNewNote_col).then(
+        fn = lambda: gr.Column(visible=False), outputs = record_editRecord_col).then(
+        fn = lambda: gr.Button(visible=False), outputs = record_patientNote_save_btn).then(
+        fn = lambda: gr.Column(visible=False), outputs = record_addNewPt_col).then(
         fn = lambda: gr.Column(visible=False), outputs = record_patient_grp)
     
     record_noteAdd_btn.click(
