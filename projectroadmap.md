@@ -31,18 +31,28 @@
 - Model evaluation using accuracy and confusion matrices
 - This code inspired me to include predictive analytics in future sprints
 
----
 
-## 🎯 Sprint 2 Goals
-- [ ] Build a form interface to enter denial details (using Gradio or Flask)
-- [ ] Store denial data in MongoDB or SQLite (depending on scale)
-- [ ] Use Pandas to group and count denials by reason, payer, and status
+## 🏗️ Sprint 2: Development and Progress
+
+### 🎯 Goals
+- [x] Build a form interface to enter denial details (using Gradio)
+- [x] Store denial data in MongoDB (connection successful via `.env`)
+- [x] Use Pandas to group and count denials by reason, payer, and status
 - [ ] Create a basic dashboard to display analytics
 - [ ] Begin drafting auto-generated appeal letter templates
 - [ ] Plan future integration of predictive modeling
+
+### ✅ Completed Tasks
+- MongoDB Atlas connection established and tested
+- `.env` file configured and functional
+- `test_mongo_connection.py` script confirmed successful connection
+- Project cloned and running locally with required dependencies
+- Streamlit environment partially tested (pending dashboard integration)
+- Several commits completed with meaningful messages in GitHub organization repo
 
 ---
 
 ## 🧠 Notes
 These two codebases provided both structural guidance and stretch ideas. One taught me how to track and display denials simply with Streamlit and SQLite, and the other inspired future AI integration with machine learning. I plan to build on these to create a tool that is both practical and intelligent for denial management in healthcare.
-Created project roadmap for Sprint 1
+
+
