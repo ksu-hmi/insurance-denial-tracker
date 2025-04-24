@@ -160,3 +160,5 @@ cython_debug/
 #.idea/
 run.bat
 run.sh
+# MongoDB runtime data
+data/db/
