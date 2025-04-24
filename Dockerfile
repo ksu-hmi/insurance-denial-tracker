@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 
-FROM python:alpine3.19 as base
+FROM python:3.10-slim as base
+
 
 ENV PYTHONDONTWRITEBYTECODE=1
 
@@ -18,9 +19,14 @@ RUN adduser \
     --uid "${UID}" \
     appuser
 
-RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=bind,source=requirements.txt,target=requirements.txt \
-    python -m pip install -r requirements.txt
+    COPY requirements.txt .
+
+    RUN apt-get update && \
+        apt-get install -y build-essential && \
+        python -m pip install --upgrade pip && \
+        python -m pip install -r requirements.txt
+    
+
 
 USER appuser
 
