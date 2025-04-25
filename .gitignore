@@ -162,3 +162,5 @@ run.bat
 run.sh
 # MongoDB runtime data
 data/db/
+.env
+

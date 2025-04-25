@@ -1,33 +1,77 @@
 import gradio as gr
-import pandas as pd
 from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
+from datetime import datetime
 
 load_dotenv()
+
 client = MongoClient(os.getenv("MONGO_URI"))
-db = client["insurance_tracker"]
+db = client[os.getenv("MONGO_DB")]
 collection = db["denials"]
 
-def submit_denial(claim_id, payer, denial_reason, appeal_status):
+def validate_date(date_str):
+    try:
+        return datetime.strptime(date_str, "%m-%d-%Y")
+    except ValueError:
+        raise ValueError(f"Invalid date format: {date_str}. Use MM-DD-YYYY.")
+
+def submit_denial(patient_last_name, patient_first_name, patient_dob, admit_date, discharge_date,
+                  total_claim_cost, denied_cost, denial_reason, payer, appeal_status):
+    if not patient_last_name or not patient_first_name or not payer or not denial_reason:
+        return "Error: Required fields are missing."
+
+    try:
+        dob = validate_date(patient_dob)
+        admit = validate_date(admit_date)
+        discharge = validate_date(discharge_date)
+    except ValueError as ve:
+        return str(ve)
+
+    if discharge < admit:
+        return "Error: Discharge date cannot be before admit date."
+    if denied_cost > total_claim_cost:
+        return "Error: Denied cost cannot exceed total claim cost."
+
     record = {
-        "claim_id": claim_id,
-        "payer": payer,
+        "patient_last_name": patient_last_name,
+        "patient_first_name": patient_first_name,
+        "patient_dob": patient_dob,
+        "admit_date": admit_date,
+        "discharge_date": discharge_date,
+        "total_claim_cost": total_claim_cost,
+        "denied_cost": denied_cost,
         "denial_reason": denial_reason,
+        "payer": payer,
         "appeal_status": appeal_status
     }
     collection.insert_one(record)
-    return f"✅ Denial recorded for claim ID: {claim_id}"
+    return "Denial record submitted successfully."
 
-with gr.Blocks() as demo:
-    gr.Markdown("### Insurance Denial Tracker")
-    claim_id = gr.Textbox(label="Claim ID")
-    payer = gr.Textbox(label="Payer")
-    denial_reason = gr.Textbox(label="Denial Reason")
-    appeal_status = gr.Textbox(label="Appeal Status")
-    submit_btn = gr.Button("Submit")
-    output = gr.Textbox(label="Status")
+denial_form = gr.Interface(
+    fn=submit_denial,
+    inputs=[
+        gr.Textbox(label="Patient Last Name"),
+        gr.Textbox(label="Patient First Name"),
+        gr.Textbox(label="Date of Birth (MM-DD-YYYY)"),
+        gr.Textbox(label="Admit Date (MM-DD-YYYY)"),
+        gr.Textbox(label="Discharge Date (MM-DD-YYYY)"),
+        gr.Number(label="Total Claim Cost"),
+        gr.Number(label="Denied Cost"),
+        gr.Textbox(label="Denial Reason"),
+        gr.Textbox(label="Payer"),
+        gr.Dropdown(label="Appeal Status", choices=[
+            "Under Review",
+            "Appeal Sent and Waiting Response",
+            "Appeal Approved",
+            "Appeal Denied"
+        ])
+    ],
+    outputs="text",
+    title="Submit Insurance Denial Record"
+)
 
-    submit_btn.click(fn=submit_denial, inputs=[claim_id, payer, denial_reason, appeal_status], outputs=output)
+denial_form.launch()
 
-demo.launch()
+
+
