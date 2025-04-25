@@ -41,6 +41,9 @@
 - [ ] Create a basic dashboard to display analytics
 - [ ] Begin drafting auto-generated appeal letter templates
 - [ ] Plan future integration of predictive modeling
+- [x] Add UI inputs for patient and cost data
+- [ ] Analyze total claim and denial amounts
+- [ ] Visualize denial costs by service date
 
 ### ✅ Completed Tasks
 - MongoDB Atlas connection established and tested
