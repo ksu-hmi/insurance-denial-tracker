@@ -1,3 +1,7 @@
 # requirements.txt
 gradio==4.11.0
 pymongo==4.6.1
+gradio==4.11.0
+pymongo
+python-dotenv
+pandas
