@@ -4,8 +4,10 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 
+# Load environment variables
 load_dotenv()
 
+# MongoDB connection
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client[os.getenv("MONGO_DB")]
 collection = db["denials"]
@@ -18,6 +20,7 @@ def validate_date(date_str):
 
 def submit_denial(patient_last_name, patient_first_name, patient_dob, admit_date, discharge_date,
                   total_claim_cost, denied_cost, denial_reason, payer, appeal_status):
+    # Required field check
     if not patient_last_name or not patient_first_name or not payer or not denial_reason:
         return "Error: Required fields are missing."
 
@@ -45,9 +48,14 @@ def submit_denial(patient_last_name, patient_first_name, patient_dob, admit_date
         "payer": payer,
         "appeal_status": appeal_status
     }
-    collection.insert_one(record)
-    return "Denial record submitted successfully."
 
+    try:
+        collection.insert_one(record)
+        return "Denial record submitted successfully."
+    except Exception as e:
+        return f"Database error: {str(e)}"
+
+# Gradio Interface
 denial_form = gr.Interface(
     fn=submit_denial,
     inputs=[
@@ -72,6 +80,7 @@ denial_form = gr.Interface(
 )
 
 denial_form.launch()
+
 
 
 

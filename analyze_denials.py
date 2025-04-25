@@ -1,43 +1,44 @@
+import os
 import pandas as pd
 from pymongo import MongoClient
 from dotenv import load_dotenv
-import os
 
+# Load environment variables
 load_dotenv()
 
 # Connect to MongoDB
 client = MongoClient(os.getenv("MONGO_URI"))
-db = client["insurance_denials"]
+db = client[os.getenv("MONGO_DB")]
 collection = db["denials"]
 
-data = list(collection.find())
-df = pd.DataFrame(data)
+# Fetch all denial records
+records = list(collection.find())
 
-# Remove MongoDB ObjectID if it exists
+# Convert to DataFrame
+df = pd.DataFrame(records)
+
+# Drop MongoDB's automatic ID field if it exists
 if "_id" in df.columns:
-    df = df.drop(columns=["_id"])
+    df.drop(columns=["_id"], inplace=True)
 
-print("\n🔍 DataFrame Columns:")
-print(df.columns)
+# Display main DataFrame
+print("\n--- Denials Data ---\n")
+print(df.head())
 
-# Basic summaries
-if not df.empty:
-    if "Denial Reason" in df.columns:
-        print("\n📊 Denials by Reason:")
-        print(df["Denial Reason"].value_counts())
+# Summary statistics
+summary = {
+    "Total Records": len(df),
+    "Average Total Claim Cost": df["total_claim_cost"].mean(),
+    "Average Denied Cost": df["denied_cost"].mean(),
+    "Total Denied Cost": df["denied_cost"].sum(),
+    "Denials by Payer": df["payer"].value_counts().to_dict(),
+    "Denials by Reason": df["denial_reason"].value_counts().to_dict(),
+    "Appeal Status Counts": df["appeal_status"].value_counts().to_dict()
+}
 
-    if "Patient Name" in df.columns:
-        print("\n🧍 Denials by Patient:")
-        print(df["Patient Name"].value_counts())
+print("\n--- Summary Statistics ---\n")
+for key, value in summary.items():
+    print(f"{key}: {value}")
 
-    if "Denied Cost" in df.columns:
-        df["Denied Cost"] = pd.to_numeric(df["Denied Cost"], errors="coerce")
-        print("\n💸 Total Denied Amount:", df["Denied Cost"].sum())
-
-    if "Total Claim Cost" in df.columns:
-        df["Total Claim Cost"] = pd.to_numeric(df["Total Claim Cost"], errors="coerce")
-        print("\n💰 Average Total Claim Cost:", df["Total Claim Cost"].mean())
-else:
-    print("\n⚠️ No data available to analyze.")
 
 
