@@ -42,6 +42,7 @@ Admin Controls
 Manage users, roles, and system configuration (in development)
 
 🗃 Data Tracked
+
 Patient Last Name
 
 Patient First Name
@@ -67,6 +68,7 @@ Frontend	Gradio
 Backend	Python
 Database	MongoDB
 Container	Docker
+
 🚀 Installation Guide
 Prerequisites
 Git
