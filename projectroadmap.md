@@ -42,7 +42,7 @@
 - [ ] Begin drafting auto-generated appeal letter templates
 - [ ] Plan future integration of predictive modeling
 - [x] Add UI inputs for patient and cost data
-- [ ] Analyze total claim and denial amounts
+- [x] Analyze total claim and denial amounts
 - [ ] Visualize denial costs by service date
 
 ### ✅ Completed Tasks
