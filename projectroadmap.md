@@ -1,61 +1,42 @@
-# Project Roadmap – Insurance Denial Tracking System
+# 📋 Project Roadmap: Insurance Denial Tracker
 
-## 🏁 Sprint 1: Setup and Exploration
+## 🏁 Sprint 1: Setup and Planning
+- [x] Set up local development environment (Python, MongoDB, Gradio)
+- [x] Create initial GitHub repository
+- [x] Configure `.gitignore` to protect sensitive files
+- [x] Establish MongoDB connection with `.env` for security
+- [x] Create a basic test form with Gradio
 
-### 🔍 Codebase 1 Reviewed
-**Title**: Denials Tracker  
-**Link**: [https://github.com/kennysantanu/denials-tracker](https://github.com/kennysantanu/denials-tracker)  
-**Language**: Python (Streamlit, Pandas, SQLite)  
-**Last Updated**: 2023  
-**License**: MIT
+## 🚀 Sprint 2: Core Development and Analysis
+- [x] Build Gradio form for denial entry with patient information (Last Name, First Name, DOB, Admit Date, Discharge Date, etc.)
+- [x] Add fields for total claim cost and denied cost
+- [x] Save denial records to MongoDB
+- [x] Validate form inputs (date formats, logical checks like discharge date after admit date)
+- [x] Create initial data analysis script (`analyze_denials.py`)
+- [x] Analyze denial data using Pandas (count by payer, reason, appeal status)
+- [x] Summarize and print total and average denial costs
+- [x] Update README.md with full project description
+- [x] Track progress and emerging tasks in projectroadmap.md
 
-### 🧠 What I Learned
-- How to use Streamlit for quick front-end UI creation
-- How SQLite can be used for small-scale denial tracking
-- The structure of basic denial fields like `claim_id`, `payer`, `denial_reason`, `appeal_status`
-- Useful inspiration for UI layout and data table views
+## 🏗️ Sprint 3: Refinements and Presentation Prep
+- [x] Corrected sensitive info handling for .env
+- [x] Improved error handling for database submissions
+- [x] Added dropdown for "Appeal Status" options
+- [x] Enhanced README.md for professional project documentation
+- [x] Prepared final presentation PowerPoint slide
+- [x] Scheduled and/or completed project video presentation in Microsoft Teams
 
----
+## ✨ Future Enhancements (Planned)
+- [ ] Create dashboard visualization for denial analytics (using Gradio plots or Dash/Flask)
+- [ ] Auto-generate appeal letters based on denial data
+- [ ] Predict common denial causes using machine learning (scikit-learn or similar)
+- [ ] Add login system with encrypted password storage
+- [ ] Deploy application to a public server (AWS, Azure, etc.)
 
-### 🔍 Codebase 2 Reviewed
-**Title**: Denial Reason Prediction Model  
-**Link**: [https://github.com/MacHu-GWU/Denial-Reason-Prediction-Model](https://github.com/MacHu-GWU/Denial-Reason-Prediction-Model)  
-**Language**: Python (Pandas, Scikit-learn)  
-**Last Updated**: ~10 years ago  
-**License**: MIT
-
-### 🧠 What I Learned
-- How to preprocess healthcare claim data for modeling
-- Methods for encoding categorical features
-- Application of logistic regression to predict denial likelihood
-- Model evaluation using accuracy and confusion matrices
-- This code inspired me to include predictive analytics in future sprints
+# 📌 Notes
+- Code commits and progress updates are available on the [KSU-HMI GitHub organization repository](https://github.com/ksu-hmi/insurance-denial-tracker).
+- Final project presentation and code demo scheduled via Microsoft Teams.
 
 
-## 🏗️ Sprint 2: Development and Progress
-
-### 🎯 Goals
-- [x] Build a form interface to enter denial details (using Gradio)
-- [x] Store denial data in MongoDB (connection successful via `.env`)
-- [x] Use Pandas to group and count denials by reason, payer, and status
-- [ ] Create a basic dashboard to display analytics
-- [ ] Begin drafting auto-generated appeal letter templates
-- [ ] Plan future integration of predictive modeling
-- [x] Add UI inputs for patient and cost data
-- [x] Analyze total claim and denial amounts
-- [ ] Visualize denial costs by service date
-
-### ✅ Completed Tasks
-- MongoDB Atlas connection established and tested
-- `.env` file configured and functional
-- `test_mongo_connection.py` script confirmed successful connection
-- Project cloned and running locally with required dependencies
-- Streamlit environment partially tested (pending dashboard integration)
-- Several commits completed with meaningful messages in GitHub organization repo
-
----
-
-## 🧠 Notes
-These two codebases provided both structural guidance and stretch ideas. One taught me how to track and display denials simply with Streamlit and SQLite, and the other inspired future AI integration with machine learning. I plan to build on these to create a tool that is both practical and intelligent for denial management in healthcare.
 
 
